@@ -75,15 +75,21 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    //Trang chủ
+                    //Trang chủ và Radar
                     composable("home") {
-                        PlaceholderScreen(
-                            title = "Trang chủ - Danh sách hiện vật",
-                            navController = navController,
-                            primaryText = "Chi tiết hiện vật",
-                            primaryRoute = "detail",
-                            secondaryText = "Hồ sơ cá nhân",
-                            secondaryRoute = "profile"
+                        HomeScreen(
+                            onDetail = {
+                                navController.navigate("detail")
+                            },
+                            onMap = {
+                                // Kết nối màn hình 7
+                            },
+                            onFavorites = {
+                                // Kết nối màn hình 9
+                            },
+                            onProfile = {
+                                navController.navigate("profile")
+                            }
                         )
                     }
                     //Chi tiết hiện vật
