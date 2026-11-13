@@ -17,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 
 class MainActivity : ComponentActivity() {
 
@@ -78,8 +80,8 @@ class MainActivity : ComponentActivity() {
                     //Trang chủ và Radar
                     composable("home") {
                         HomeScreen(
-                            onDetail = {
-                                navController.navigate("detail")
+                            onDetail = { artifactId ->
+                                navController.navigate("detail/$artifactId")
                             },
                             onMap = {
                                 // Kết nối màn hình 7
@@ -93,9 +95,13 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     //Chi tiết hiện vật
-                    composable("detail") {
+                    composable(
+                        route = "detail/{artifactId}",
+                        arguments = listOf(navArgument("artifactId") { type = NavType.IntType })
+                    ) { backStackEntry ->
+                        val artifactId = requireNotNull(backStackEntry.arguments).getInt("artifactId")
                         PlaceholderScreen(
-                            title = "Chi tiết hiện vật",
+                            title = "Chi tiết hiện vật #$artifactId",
                             navController = navController,
                             primaryText = "Về trang chủ",
                             primaryRoute = "home",
@@ -125,9 +131,20 @@ class MainActivity : ComponentActivity() {
                             },
                             onFavorites = {
                                 // Kết nối màn hình đã lưu sau
+                            },
+                            onSimulator = {
+                                navController.navigate("beacon_simulator")
                             }
                         )
+                    }
 
+                    // Màn hình giả lập iBeacon (Test / Demo M3/M4 & M8)
+                    composable("beacon_simulator") {
+                        BeaconSimulatorScreen(
+                            onBack = {
+                                navController.popBackStack()
+                            }
+                        )
                     }
                 }
             }

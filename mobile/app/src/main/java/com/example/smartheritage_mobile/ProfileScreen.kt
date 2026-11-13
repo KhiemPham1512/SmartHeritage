@@ -28,7 +28,8 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onHome: () -> Unit,
     onMap: () -> Unit,
-    onFavorites: () -> Unit
+    onFavorites: () -> Unit,
+    onSimulator: () -> Unit = {}
 ) {
     var beaconEnabled by remember { mutableStateOf(true) }
     var selectedLanguage by remember { mutableStateOf("Tiếng Việt") }
@@ -231,6 +232,40 @@ fun ProfileScreen(
                     fontWeight = FontWeight.Bold,
                     color = ProfileText
                 )
+
+                Text("›", color = ProfileGray, fontSize = 22.sp)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // iBeacon Simulator (Test/Demo)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .background(Color.White, RoundedCornerShape(11.dp))
+                    .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
+                    .clickable { onSimulator() }
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("📡", color = ProfileOrange, fontSize = 19.sp)
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Chế độ Giả lập iBeacon (Test/Demo)",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ProfileText
+                    )
+                    Text(
+                        "Phát sóng iBeacon để kiểm thử cột mốc M3/M4",
+                        fontSize = 9.sp,
+                        color = ProfileGray
+                    )
+                }
 
                 Text("›", color = ProfileGray, fontSize = 22.sp)
             }

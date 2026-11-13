@@ -1,9 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Quyền kết nối mạng -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Quyền truy cập mạng cục bộ trên Android 17 -->
+    <!-- Quyền truy cập vị trí phục vụ quét & phát iBeacon -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Quyền Bluetooth truyền thống (Android <= 10) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+
+    <!-- Quyền Bluetooth mới (Android 12+) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+
+    <!-- Quyền truy cập mạng cục bộ trên Android -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
