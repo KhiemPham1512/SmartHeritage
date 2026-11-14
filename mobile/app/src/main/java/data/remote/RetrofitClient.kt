@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     // Ưu tiên 127.0.0.1 (qua adb reverse) và tự động dự phòng sang 10.0.2.2 (mạng máy ảo)
-    private const val PRIMARY_URL = "http://127.0.0.1:8000/"
+    const val PRIMARY_URL = "http://127.0.0.1:8000/"
     private const val FALLBACK_HOST = "10.0.2.2"
 
     private val smartFailoverInterceptor = Interceptor { chain ->
