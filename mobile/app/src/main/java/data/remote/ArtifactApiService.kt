@@ -2,10 +2,12 @@
 package com.example.smartheritage_mobile.data.remote
 
 import com.example.smartheritage_mobile.model.Artifact
+import com.example.smartheritage_mobile.model.ArtifactDetailResponse
 import com.example.smartheritage_mobile.model.ResolvedBeaconResponse
 import com.example.smartheritage_mobile.model.SiteMapResponse
 import retrofit2.Response
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ArtifactApiService {
@@ -15,6 +17,12 @@ interface ArtifactApiService {
         @Query("lang") lang: String,
         @Query("status") status: String = "PUBLISHED"
     ): List<Artifact>
+
+    @GET("api/artifacts/{artifact_id}")
+    suspend fun getArtifactDetail(
+        @Path("artifact_id") artifactId: Int,
+        @Query("lang") lang: String
+    ): Response<ArtifactDetailResponse>
 
     @GET("api/beacons/resolve")
     suspend fun resolveBeacon(

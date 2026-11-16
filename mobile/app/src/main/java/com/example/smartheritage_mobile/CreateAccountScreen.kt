@@ -1,6 +1,7 @@
 package com.example.smartheritage_mobile
 
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -47,16 +51,17 @@ fun CreateAccountScreen(
     ) {
         Spacer(modifier = Modifier.height(40.dp))
 
-        // Logo Smart Heritage
+        // Logo Smart Heritage chuẩn Figma
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "♜",
-                color = RegisterOrange,
-                fontSize = 24.sp
+            Image(
+                painter = painterResource(id = R.drawable.logo_bao_tang),
+                contentDescription = "Logo Smart Heritage",
+                modifier = Modifier.size(25.dp),
+                contentScale = ContentScale.Fit
             )
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -64,7 +69,8 @@ fun CreateAccountScreen(
             Text(
                 text = "Smart Heritage",
                 color = RegisterText,
-                fontSize = 17.sp,
+                fontSize = 19.sp,
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -76,6 +82,7 @@ fun CreateAccountScreen(
             text = "Tạo tài khoản",
             color = RegisterText,
             fontSize = 22.sp,
+            fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold
         )
 

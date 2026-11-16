@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,7 +35,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
 import com.example.smartheritage_mobile.config.BeaconConfig
+import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
+import com.example.smartheritage_mobile.config.resolveArtifactImageModel
 import com.example.smartheritage_mobile.config.toFullMediaUrl
+import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 import com.example.smartheritage_mobile.data.repository.ArtifactRepository
 import com.example.smartheritage_mobile.model.Artifact
 import com.example.smartheritage_mobile.model.ResolvedBeaconResponse
@@ -95,8 +99,9 @@ fun HomeScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Khởi tạo Repository
+    // Khởi tạo Repository & Bộ nhớ đệm Offline (CachedArtifact)
     val repository = remember { ArtifactRepository() }
+    val localCache = remember { LocalArtifactCache.getInstance(context) }
 
     // --- 1. QUẢN LÝ QUYỀN RUNTIME PERMISSIONS ---
     val requiredPermissions = remember {
@@ -169,10 +174,13 @@ fun HomeScreen(
             try {
                 val response = repository.resolveBeacon(major = major, minor = minor, lang = apiLanguage)
                 if (response.isSuccessful && response.body() != null) {
-                    detectedArtifact = response.body()
+                    val resolvedBody = response.body()!!
+                    detectedArtifact = resolvedBody
+                    // Lưu ngay hiện vật vừa quét vào bảng CachedArtifact để xem ngoài vùng sóng (M5)
+                    localCache.saveFromResolvedBeacon(resolvedBody)
                     showDetectedBottomSheet = true
                     scanErrorMessage = null
-                    Log.d("BeaconProcess", "Kích hoạt thành công hiện vật minor=$minor: ${detectedArtifact?.name}")
+                    Log.d("BeaconProcess", "Kích hoạt & lưu cache thành công hiện vật minor=$minor: ${resolvedBody.name}")
                 } else {
                     // HTTP 404 (VD: Beacon LOW_BATTERY/LOST_SIGNAL 103, 104) hoặc không tìm thấy:
                     cooldownMap.remove(minor)
@@ -270,6 +278,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(HomeBackground)
+                .statusBarsPadding()
         ) {
 
             // HEADER CỐ ĐỊNH Ở ĐỈNH
@@ -290,7 +299,8 @@ fun HomeScreen(
 
                     Text(
                         text = "Tên khu di tích",
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
+                        fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
                         color = HomeText
                     )
@@ -303,6 +313,7 @@ fun HomeScreen(
                         .border(1.dp, HomeBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             selectedLanguage = if (selectedLanguage == "VI / EN") "EN / VI" else "VI / EN"
+                            localCache.setPreferredLanguage(if (selectedLanguage == "VI / EN") "vi" else "en")
                         }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     color = HomeOrange,
@@ -444,7 +455,8 @@ fun HomeScreen(
                         text = "Hiện vật nổi bật (${displayArtifacts.size})",
                         modifier = Modifier.weight(1f),
                         color = HomeText,
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
+                        fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -686,10 +698,21 @@ private fun DetectedArtifactBottomSheetContent(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tải ảnh từ URL đầy đủ với Coil (Nếu null sẽ dùng màu nền ngôi nhà mặc định)
+            // Tải ảnh thật của đúng hiện vật vào khung hình ngôi nhà
+            val popupFallbackRes = resolveArtifactDrawableRes(
+                imageUrl = artifact.image_url,
+                artifactName = artifact.name,
+                artifactId = artifact.artifact_id
+            )
             AsyncImage(
-                model = artifact.image_url.toFullMediaUrl(),
+                model = resolveArtifactImageModel(
+                    imageUrl = artifact.image_url,
+                    artifactName = artifact.name,
+                    artifactId = artifact.artifact_id
+                ),
                 contentDescription = artifact.name,
+                placeholder = painterResource(id = popupFallbackRes),
+                error = painterResource(id = popupFallbackRes),
                 modifier = Modifier
                     .size(84.dp)
                     .clip(RoundedCornerShape(16.dp))
@@ -706,6 +729,7 @@ private fun DetectedArtifactBottomSheetContent(
                     text = artifact.name ?: "Tên hiện vật",
                     color = HomeText,
                     fontSize = 16.sp,
+                    fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -792,9 +816,20 @@ private fun ArtifactCard(
             .padding(5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val cardFallbackRes = resolveArtifactDrawableRes(
+            imageUrl = artifact.imageUrl,
+            artifactName = artifact.name,
+            artifactId = artifact.artifactId
+        )
         AsyncImage(
-            model = artifact.imageUrl.toFullMediaUrl(),
+            model = resolveArtifactImageModel(
+                imageUrl = artifact.imageUrl,
+                artifactName = artifact.name,
+                artifactId = artifact.artifactId
+            ),
             contentDescription = artifact.name,
+            placeholder = painterResource(id = cardFallbackRes),
+            error = painterResource(id = cardFallbackRes),
             modifier = Modifier
                 .size(62.dp)
                 .clip(RoundedCornerShape(8.dp))
@@ -811,7 +846,8 @@ private fun ArtifactCard(
             Text(
                 text = artifact.name,
                 color = HomeText,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold
             )
 

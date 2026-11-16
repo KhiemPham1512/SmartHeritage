@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,16 +43,17 @@ fun WelcomeScreen(
     ) {
         Spacer(modifier = Modifier.height(40.dp))
 
-        // Logo và tên ứng dụng
+        // Logo và tên ứng dụng chuẩn Figma
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "♜",
-                color = PrimaryColor,
-                fontSize = 25.sp
+            Image(
+                painter = painterResource(id = R.drawable.logo_bao_tang),
+                contentDescription = "Logo Smart Heritage",
+                modifier = Modifier.size(26.dp),
+                contentScale = ContentScale.Fit
             )
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -59,7 +61,8 @@ fun WelcomeScreen(
             Text(
                 text = "Smart Heritage",
                 color = TextColor,
-                fontSize = 18.sp,
+                fontSize = 20.sp,
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -85,7 +88,8 @@ fun WelcomeScreen(
         Text(
             text = "Di sản trong tầm tay",
             color = TextColor,
-            fontSize = 21.sp,
+            fontSize = 22.sp,
+            fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold
         )
 
