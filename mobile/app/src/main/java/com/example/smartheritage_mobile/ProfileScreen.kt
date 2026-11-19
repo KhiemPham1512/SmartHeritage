@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,7 +49,8 @@ fun ProfileScreen(
         ) {
             Text(
                 "Tài khoản cá nhân",
-                fontSize = 17.sp,
+                fontSize = 19.sp,
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold,
                 color = ProfileText,
                 modifier = Modifier.weight(1f)

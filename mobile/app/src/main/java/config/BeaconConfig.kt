@@ -1,5 +1,6 @@
 package com.example.smartheritage_mobile.config
 
+import com.example.smartheritage_mobile.R
 import com.example.smartheritage_mobile.data.remote.RetrofitClient
 
 object BeaconConfig {
@@ -12,7 +13,7 @@ object BeaconConfig {
 }
 
 /**
- * Hàm extension ghép đường dẫn tương đối từ Backend (ví dụ /static/images/hv_001.jpg)
+ * Hàm extension ghép đường dẫn tương đối từ Backend (ví dụ /static/audio/ngoc-lu-thuyet-minh-vi.mp3)
  * với BASE_URL của Retrofit để Coil và ExoPlayer tải thành công file media.
  */
 fun String?.toFullMediaUrl(): String? {
@@ -23,4 +24,80 @@ fun String?.toFullMediaUrl(): String? {
     val baseUrl = RetrofitClient.PRIMARY_URL.removeSuffix("/")
     val relativePath = if (this.startsWith("/")) this else "/$this"
     return "$baseUrl$relativePath"
+}
+
+/**
+ * Trả về đúng ảnh chụp thật của từng hiện vật theo Tên hiện vật, Mã ảnh hoặc ID hiện vật.
+ */
+fun resolveArtifactDrawableRes(
+    imageUrl: String? = null,
+    artifactName: String? = null,
+    artifactId: Int? = null
+): Int {
+    val nameLower = artifactName?.lowercase().orEmpty()
+    val urlLower = imageUrl?.lowercase().orEmpty()
+
+    return when {
+        nameLower.contains("ngọc lũ") || nameLower.contains("ngoc lu") || nameLower.contains("trống đồng") || nameLower.contains("bronze drum") ->
+            R.drawable.img_trong_dong_ngoc_lu
+
+        nameLower.contains("chu đậu") || nameLower.contains("chu dau") || nameLower.contains("bình gốm") || nameLower.contains("ceramic") ->
+            R.drawable.img_binh_gom_chu_dau
+
+        nameLower.contains("phật tích") || nameLower.contains("phat tich") || nameLower.contains("tượng phật") ->
+            R.drawable.img_tuong_phat_tich
+
+        nameLower.contains("apsara") || nameLower.contains("chăm pa") || nameLower.contains("champa") ->
+            R.drawable.img_tuong_apsara
+
+        nameLower.contains("đào thịnh") || nameLower.contains("dao thinh") || nameLower.contains("thạp đồng") || nameLower.contains("bronze jar") ->
+            R.drawable.img_thap_dong_dao_thinh
+
+        nameLower.contains("ấn vàng") || nameLower.contains("hoàng đế") || nameLower.contains("golden seal") || nameLower.contains("triều nguyễn") ->
+            R.drawable.img_an_vang_trieu_nguyen
+
+        nameLower.contains("cửu đỉnh") || nameLower.contains("cuu dinh") || nameLower.contains("nine dynastic") ->
+            R.drawable.img_cuu_dinh_hue
+
+        urlLower.endsWith("hv_001.jpg") -> R.drawable.img_trong_dong_ngoc_lu
+        urlLower.endsWith("hv_002.jpg") -> R.drawable.img_binh_gom_chu_dau
+        urlLower.endsWith("hv_003.jpg") -> R.drawable.img_tuong_apsara
+        urlLower.endsWith("hv_004.jpg") -> R.drawable.img_thap_dong_dao_thinh
+        urlLower.endsWith("hv_005.jpg") -> R.drawable.img_an_vang_trieu_nguyen
+        urlLower.endsWith("hv_006.jpg") -> R.drawable.img_cuu_dinh_hue
+
+        artifactId == 1 -> R.drawable.img_trong_dong_ngoc_lu
+        artifactId == 2 -> R.drawable.img_binh_gom_chu_dau
+        artifactId == 3 -> R.drawable.img_tuong_apsara
+        artifactId == 4 -> R.drawable.img_thap_dong_dao_thinh
+        artifactId == 5 -> R.drawable.img_an_vang_trieu_nguyen
+        artifactId == 6 -> R.drawable.img_cuu_dinh_hue
+
+        else -> R.drawable.img_trong_dong_ngoc_lu
+    }
+}
+
+/**
+ * Nếu ảnh từ Backend là bộ 5 file mẫu hv_001..hv_005 (vốn là ảnh màu đơn sắc do seed_media.py tạo)
+ * hoặc đang chạy offline, tự động hiển thị ảnh chụp hiện vật thật sắc nét đã tích hợp.
+ * Nếu Admin tải lên ảnh mới qua Web W4 (ví dụ /static/images/media_xxx.jpg) thì tải từ URL Server.
+ */
+fun resolveArtifactImageModel(
+    imageUrl: String? = null,
+    artifactName: String? = null,
+    artifactId: Int? = null
+): Any {
+    val urlLower = imageUrl?.lowercase().orEmpty()
+    val isDefaultSeedImage = urlLower.isBlank() ||
+            urlLower.endsWith("hv_001.jpg") ||
+            urlLower.endsWith("hv_002.jpg") ||
+            urlLower.endsWith("hv_003.jpg") ||
+            urlLower.endsWith("hv_004.jpg") ||
+            urlLower.endsWith("hv_005.jpg") ||
+            urlLower.endsWith("hv_006.jpg")
+
+    if (!isDefaultSeedImage) {
+        return imageUrl.toFullMediaUrl() ?: resolveArtifactDrawableRes(imageUrl, artifactName, artifactId)
+    }
+    return resolveArtifactDrawableRes(imageUrl, artifactName, artifactId)
 }
