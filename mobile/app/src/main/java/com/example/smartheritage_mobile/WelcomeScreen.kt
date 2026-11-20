@@ -1,4 +1,3 @@
-
 package com.example.smartheritage_mobile
 
 import androidx.compose.foundation.Image
@@ -14,11 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartheritage_mobile.config.getAppStrings
+import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 
 private val BackgroundColor = Color(0xFFFAF8F6)
 private val PrimaryColor = Color(0xFFB95008)
@@ -30,28 +33,32 @@ private val BorderColor = Color(0xFFE8E5E1)
 fun WelcomeScreen(
     onContinue: () -> Unit
 ) {
-    var selectedLanguage by remember {
-        mutableStateOf("Tiếng Việt")
-    }
+    val context = LocalContext.current
+    val cache = remember { LocalArtifactCache.getInstance(context) }
+    var currentLang by remember { mutableStateOf(cache.getPreferredLanguage()) }
+    val strings = remember(currentLang) { getAppStrings(currentLang) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
-            .padding(horizontal = 14.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-        // Logo và tên ứng dụng
+        // Logo và tên ứng dụng chuẩn Figma
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "♜",
-                color = PrimaryColor,
-                fontSize = 25.sp
+            Image(
+                painter = painterResource(id = R.drawable.logo_bao_tang),
+                contentDescription = "Logo Smart Heritage",
+                modifier = Modifier.size(26.dp),
+                contentScale = ContentScale.Fit
             )
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -59,7 +66,8 @@ fun WelcomeScreen(
             Text(
                 text = "Smart Heritage",
                 color = TextColor,
-                fontSize = 18.sp,
+                fontSize = 20.sp,
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -74,38 +82,38 @@ fun WelcomeScreen(
             contentDescription = "Hình ảnh di sản",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(156.dp)
-                .clip(RoundedCornerShape(12.dp)),
+                .height(176.dp)
+                .clip(RoundedCornerShape(14.dp)),
             contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         // Tiêu đề
         Text(
-            text = "Di sản trong tầm tay",
+            text = strings.welcomeTitle,
             color = TextColor,
-            fontSize = 21.sp,
+            fontSize = 22.sp,
+            fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Khám phá hiện vật, lắng nghe những câu chuyện " +
-                    "lịch sử và lưu lại hành trình của bạn.",
+            text = strings.welcomeSubtitle,
             color = GrayColor,
-            fontSize = 10.sp,
-            lineHeight = 15.sp
+            fontSize = 12.sp,
+            lineHeight = 18.sp
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         // Chọn ngôn ngữ
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(38.dp)
+                .height(46.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color.White)
                 .border(
@@ -114,44 +122,44 @@ fun WelcomeScreen(
                     RoundedCornerShape(10.dp)
                 )
                 .clickable {
-                    selectedLanguage =
-                        if (selectedLanguage == "Tiếng Việt") {
-                            "English"
-                        } else {
-                            "Tiếng Việt"
-                        }
+                    val nextLang = if (currentLang == "vi") "en" else "vi"
+                    currentLang = nextLang
+                    cache.setPreferredLanguage(nextLang)
                 }
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "◎",
-                color = PrimaryColor,
-                fontSize = 17.sp
+            Icon(
+                painter = painterResource(id = R.drawable.ic_globe),
+                contentDescription = null,
+                tint = PrimaryColor,
+                modifier = Modifier.size(18.dp)
             )
 
             Spacer(modifier = Modifier.width(10.dp))
 
             Text(
-                text = selectedLanguage,
+                text = strings.languageDisplayName,
                 color = TextColor,
-                fontSize = 10.sp,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
             )
 
-            Text(
-                text = "›",
-                color = GrayColor,
-                fontSize = 20.sp
+            Icon(
+                painter = painterResource(id = R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = GrayColor,
+                modifier = Modifier.size(18.dp)
             )
         }
 
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = "BẮT ĐẦU HÀNH TRÌNH",
+            text = strings.startJourneyLabel,
             color = GrayColor,
-            fontSize = 7.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.Bold
         )
 
@@ -162,16 +170,16 @@ fun WelcomeScreen(
             onClick = onContinue,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(38.dp),
+                .height(46.dp),
             shape = RoundedCornerShape(10.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = PrimaryColor
             )
         ) {
             Text(
-                text = "Bắt đầu khám phá",
+                text = strings.startExploringBtn,
                 color = Color.White,
-                fontSize = 10.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -179,10 +187,10 @@ fun WelcomeScreen(
         Spacer(modifier = Modifier.height(22.dp))
 
         Text(
-            text = "Lịch sử sống động hơn",
+            text = strings.livingHistoryTitle,
             modifier = Modifier.fillMaxWidth(),
             color = TextColor,
-            fontSize = 10.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
@@ -190,13 +198,11 @@ fun WelcomeScreen(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Mỗi hiện vật là một câu chuyện.",
+            text = strings.livingHistorySub,
             modifier = Modifier.fillMaxWidth(),
             color = GrayColor,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             textAlign = TextAlign.Center
         )
     }
 }
-
-

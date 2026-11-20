@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,13 +55,13 @@ data class SimulatorBeaconInfo(
     val threshold: String
 )
 
-// 5 lựa chọn mã Minor theo đúng dữ liệu Seed Database của nhóm
+// 5 lựa chọn mã Minor theo đúng dữ liệu Seed Database của nhóm (Hiển thị rõ tên hiện vật để dễ chọn cho 5 điện thoại demo)
 private val beaconSeedList = listOf(
-    SimulatorBeaconInfo("BC-001", 101, "Hiện vật BC-001", "ACTIVE", "Ngưỡng 2.0m"),
-    SimulatorBeaconInfo("BC-002", 102, "Hiện vật BC-002", "ACTIVE", "Ngưỡng 2.5m"),
-    SimulatorBeaconInfo("BC-003", 103, "Hiện vật BC-003", "LOW_BATTERY", "Ngưỡng 1.5m"),
-    SimulatorBeaconInfo("BC-004", 104, "Hiện vật BC-004", "LOST_SIGNAL", "Ngưỡng 2.0m"),
-    SimulatorBeaconInfo("BC-005", 105, "Hiện vật BC-005", "ACTIVE", "Ngưỡng 2.0m")
+    SimulatorBeaconInfo("BC-001", 101, "Trống đồng Ngọc Lũ", "ACTIVE", "Ngưỡng 2.0m"),
+    SimulatorBeaconInfo("BC-002", 102, "Bình gốm Chu Đậu", "ACTIVE", "Ngưỡng 2.5m"),
+    SimulatorBeaconInfo("BC-003", 103, "Tượng Apsara", "ACTIVE", "Ngưỡng 1.5m"),
+    SimulatorBeaconInfo("BC-004", 104, "Thạp đồng Đào Thịnh", "ACTIVE", "Ngưỡng 2.0m"),
+    SimulatorBeaconInfo("BC-005", 105, "Ấn vàng Triều Nguyễn", "ACTIVE", "Ngưỡng 2.0m")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -201,15 +203,21 @@ fun BeaconSimulatorScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Giả lập iBeacon (Test/Demo)",
-                        fontSize = 17.sp,
+                        "Phát sóng iBeacon (Máy trạm)",
+                        fontSize = 18.sp,
+                        fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
                         color = SimText
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Text("←", fontSize = 22.sp, color = SimOrange, fontWeight = FontWeight.Bold)
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_arrow_back),
+                            contentDescription = null,
+                            tint = SimOrange,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
@@ -221,6 +229,7 @@ fun BeaconSimulatorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .navigationBarsPadding()
                 .padding(16.dp)
         ) {
             // KHUNG TRẠNG THÁI PHÁT SỐNG

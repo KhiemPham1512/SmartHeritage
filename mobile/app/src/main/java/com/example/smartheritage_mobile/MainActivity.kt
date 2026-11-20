@@ -57,6 +57,9 @@ class MainActivity : ComponentActivity() {
                             },
                             onGuest = {
                                 navController.navigate("home")
+                            },
+                            onBeaconStation = {
+                                navController.navigate("beacon_simulator")
                             }
                         )
                     }
@@ -84,29 +87,72 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("detail/$artifactId")
                             },
                             onMap = {
-                                // Kết nối màn hình 7
+                                navController.navigate("map")
                             },
                             onFavorites = {
-                                // Kết nối màn hình 9
+                                navController.navigate("favorites")
                             },
                             onProfile = {
                                 navController.navigate("profile")
                             }
                         )
                     }
-                    //Chi tiết hiện vật
+                    //Chi tiết hiện vật (M5 - Màn hình 6 + Hộp thoại M6 Màn hình 8)
                     composable(
                         route = "detail/{artifactId}",
                         arguments = listOf(navArgument("artifactId") { type = NavType.IntType })
                     ) { backStackEntry ->
                         val artifactId = requireNotNull(backStackEntry.arguments).getInt("artifactId")
-                        PlaceholderScreen(
-                            title = "Chi tiết hiện vật #$artifactId",
-                            navController = navController,
-                            primaryText = "Về trang chủ",
-                            primaryRoute = "home",
-                            secondaryText = "Hồ sơ cá nhân",
-                            secondaryRoute = "profile"
+                        ArtifactDetailScreen(
+                            artifactId = artifactId,
+                            onBack = {
+                                if (!navController.popBackStack()) {
+                                    navController.navigate("home")
+                                }
+                            }
+                        )
+                    }
+                    //Bản đồ di tích (M5 - Màn hình 7)
+                    composable("map") {
+                        SiteMapScreen(
+                            onBack = {
+                                if (!navController.popBackStack()) {
+                                    navController.navigate("home")
+                                }
+                            },
+                            onHome = {
+                                navController.navigate("home") {
+                                    popUpTo("home") { inclusive = true }
+                                }
+                            },
+                            onFavorites = {
+                                navController.navigate("favorites")
+                            },
+                            onProfile = {
+                                navController.navigate("profile")
+                            },
+                            onArtifactDetail = { artifactId ->
+                                navController.navigate("detail/$artifactId")
+                            }
+                        )
+                    }
+                    //Đã lưu & Lịch sử tham quan (M6 - Màn hình 9)
+                    composable("favorites") {
+                        SavedAndHistoryScreen(
+                            onHome = {
+                                navController.navigate("home") {
+                                    popUpTo("home") { inclusive = true }
+                                }
+                            },
+                            onMap = {
+                                navController.navigate("map")
+                            },
+                            onProfile = {
+                                navController.navigate("profile")
+                            },
+                            onArtifactDetail = { artifactId ->
+                                navController.navigate("detail/$artifactId")
+                            }
                         )
                     }
                     //Hồ sơ cá nhân
@@ -127,10 +173,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onMap = {
-                                // Kết nối màn hình bản đồ sau
+                                navController.navigate("map")
                             },
                             onFavorites = {
-                                // Kết nối màn hình đã lưu sau
+                                navController.navigate("favorites")
                             },
                             onSimulator = {
                                 navController.navigate("beacon_simulator")
