@@ -7,6 +7,10 @@ import android.database.sqlite.SQLiteOpenHelper
 import com.example.smartheritage_mobile.model.ArtifactDetailResponse
 import com.example.smartheritage_mobile.model.ArtifactFeedbackDto
 import com.example.smartheritage_mobile.model.ResolvedBeaconResponse
+import com.example.smartheritage_mobile.model.VisitLogItemDto
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class CachedArtifact(
     val artifactId: Int,
@@ -52,12 +56,29 @@ data class CachedArtifact(
             feedbacks = feedbacks
         )
     }
+
+    fun toVisitLogItem(lang: String, durationSec: Int = 90, visitedAt: String = "18/10/2026 · 09:30"): VisitLogItemDto {
+        val isEn = lang.equals("en", ignoreCase = true)
+        return VisitLogItemDto(
+            log_id = artifactId,
+            artifact_id = artifactId,
+            artifact_code = artifactCode,
+            zone_name = zoneName,
+            name = if (isEn && nameEn.isNotBlank()) nameEn else nameVi,
+            summary = if (isEn && summaryEn.isNotBlank()) summaryEn else summaryVi,
+            image_url = imageUrl,
+            duration_seconds = durationSec,
+            is_favorite = isFavorite,
+            visited_at = visitedAt
+        )
+    }
 }
 
 /**
- * Bộ nhớ đệm CSDL cục bộ (bảng CachedArtifact) phục vụ cột mốc M5:
- * Lưu tạm hiện vật vừa quét iBeacon hoặc vừa mở để khi khách đi xa mất sóng BLE
- * hoặc mất mạng vẫn tiếp tục nghe thuyết minh và đọc nội dung trọn vẹn.
+ * Bộ nhớ đệm CSDL cục bộ phục vụ cột mốc M5 & M6:
+ * - Bảng CachedArtifact: Lưu hiện vật xem ngoài vùng sóng & trạng thái yêu thích (is_favorite).
+ * - Bảng LocalVisitHistory: Lưu nhật ký tham quan cục bộ kèm thời gian dừng chân (duration_seconds).
+ * - Bảng LocalFeedbacks: Lưu đánh giá sao & bình luận của khách tham quan.
  */
 class LocalArtifactCache private constructor(context: Context) :
     SQLiteOpenHelper(context.applicationContext, DATABASE_NAME, null, DATABASE_VERSION) {
@@ -88,17 +109,69 @@ class LocalArtifactCache private constructor(context: Context) :
             )
             """.trimIndent()
         )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_VISIT_HISTORY (
+                history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artifact_id INTEGER NOT NULL,
+                artifact_name TEXT NOT NULL,
+                zone_name TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                image_url TEXT NOT NULL,
+                duration_seconds INTEGER NOT NULL DEFAULT 60,
+                visited_at TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_LOCAL_FEEDBACKS (
+                feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artifact_id INTEGER NOT NULL,
+                visitor_name TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                comment TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+
         seedDefaultArtifacts(db)
+        seedDefaultHistory(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_CACHED_ARTIFACT")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_VISIT_HISTORY")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_LOCAL_FEEDBACKS")
         onCreate(db)
     }
 
     private fun seedDefaultArtifacts(db: SQLiteDatabase) {
         defaultSeeds.forEach { item ->
             insertOrUpdateInternal(db, item)
+        }
+    }
+
+    private fun seedDefaultHistory(db: SQLiteDatabase) {
+        val initialLogs = listOf(
+            Triple(defaultSeeds[0], 145, "18/10/2026 · 09:30"),
+            Triple(defaultSeeds[1], 95, "18/10/2026 · 09:15"),
+            Triple(defaultSeeds[2], 120, "18/10/2026 · 08:50")
+        )
+        initialLogs.forEach { (seed, duration, timeStr) ->
+            val values = ContentValues().apply {
+                put("artifact_id", seed.artifactId)
+                put("artifact_name", seed.nameVi)
+                put("zone_name", seed.zoneName)
+                put("summary", seed.summaryVi)
+                put("image_url", seed.imageUrl)
+                put("duration_seconds", duration)
+                put("visited_at", timeStr)
+            }
+            db.insert(TABLE_VISIT_HISTORY, null, values)
         }
     }
 
@@ -136,7 +209,7 @@ class LocalArtifactCache private constructor(context: Context) :
         val merged = CachedArtifact(
             artifactId = resolved.artifact_id,
             artifactCode = resolved.artifact_code ?: existing?.artifactCode ?: fallback?.artifactCode ?: "HV-00${resolved.artifact_id}",
-            zoneName = resolved.zone_name ?: existing?.zoneName ?: fallback?.zoneName ?: "Khu trưng bày chính",
+            zoneName = resolved.zone_name ?: existing?.zoneName ?: fallback?.zoneName ?: "Khu trưng bày A",
             nameVi = resolved.name ?: existing?.nameVi ?: fallback?.nameVi ?: "Hiện vật lịch sử",
             nameEn = existing?.nameEn ?: fallback?.nameEn ?: resolved.name ?: "Historical Artifact",
             summaryVi = resolved.summary ?: existing?.summaryVi ?: fallback?.summaryVi ?: "",
@@ -149,7 +222,7 @@ class LocalArtifactCache private constructor(context: Context) :
             audioDurationSec = resolved.audio_duration_sec ?: existing?.audioDurationSec ?: fallback?.audioDurationSec ?: 225,
             mapX = resolved.map_x ?: existing?.mapX ?: fallback?.mapX ?: 340f,
             mapY = resolved.map_y ?: existing?.mapY ?: fallback?.mapY ?: 215f,
-            isFavorite = existing?.isFavorite ?: false,
+            isFavorite = existing?.isFavorite ?: fallback?.isFavorite ?: false,
             cachedAt = System.currentTimeMillis()
         )
         insertOrUpdateInternal(writableDatabase, merged)
@@ -162,7 +235,7 @@ class LocalArtifactCache private constructor(context: Context) :
         val merged = CachedArtifact(
             artifactId = detail.artifact_id,
             artifactCode = detail.artifact_code ?: existing?.artifactCode ?: fallback?.artifactCode ?: "HV-00${detail.artifact_id}",
-            zoneName = detail.zone_name ?: existing?.zoneName ?: fallback?.zoneName ?: "Khu trưng bày chính",
+            zoneName = detail.zone_name ?: existing?.zoneName ?: fallback?.zoneName ?: "Khu trưng bày A",
             nameVi = detail.name_vi ?: detail.name ?: existing?.nameVi ?: fallback?.nameVi ?: "Hiện vật lịch sử",
             nameEn = detail.name_en ?: detail.name ?: existing?.nameEn ?: fallback?.nameEn ?: "Historical Artifact",
             summaryVi = detail.summary_vi ?: detail.summary ?: existing?.summaryVi ?: fallback?.summaryVi ?: "",
@@ -175,7 +248,7 @@ class LocalArtifactCache private constructor(context: Context) :
             audioDurationSec = detail.audio_duration_sec ?: existing?.audioDurationSec ?: fallback?.audioDurationSec ?: 225,
             mapX = detail.map_x ?: existing?.mapX ?: fallback?.mapX ?: 340f,
             mapY = detail.map_y ?: existing?.mapY ?: fallback?.mapY ?: 215f,
-            isFavorite = existing?.isFavorite ?: false,
+            isFavorite = existing?.isFavorite ?: fallback?.isFavorite ?: false,
             cachedAt = System.currentTimeMillis()
         )
         insertOrUpdateInternal(writableDatabase, merged)
@@ -187,53 +260,164 @@ class LocalArtifactCache private constructor(context: Context) :
             arrayOf(artifactId.toString())
         ).use { cursor ->
             if (cursor.moveToFirst()) {
-                return CachedArtifact(
-                    artifactId = cursor.getInt(cursor.getColumnIndexOrThrow("artifact_id")),
-                    artifactCode = cursor.getString(cursor.getColumnIndexOrThrow("artifact_code")),
-                    zoneName = cursor.getString(cursor.getColumnIndexOrThrow("zone_name")),
-                    nameVi = cursor.getString(cursor.getColumnIndexOrThrow("name_vi")),
-                    nameEn = cursor.getString(cursor.getColumnIndexOrThrow("name_en")),
-                    summaryVi = cursor.getString(cursor.getColumnIndexOrThrow("summary_vi")),
-                    summaryEn = cursor.getString(cursor.getColumnIndexOrThrow("summary_en")),
-                    descriptionVi = cursor.getString(cursor.getColumnIndexOrThrow("description_vi")),
-                    descriptionEn = cursor.getString(cursor.getColumnIndexOrThrow("description_en")),
-                    imageUrl = cursor.getString(cursor.getColumnIndexOrThrow("image_url")),
-                    audioViUrl = cursor.getString(cursor.getColumnIndexOrThrow("audio_vi_url")),
-                    audioEnUrl = cursor.getString(cursor.getColumnIndexOrThrow("audio_en_url")),
-                    audioDurationSec = cursor.getInt(cursor.getColumnIndexOrThrow("audio_duration_sec")),
-                    mapX = cursor.getFloat(cursor.getColumnIndexOrThrow("map_x")),
-                    mapY = cursor.getFloat(cursor.getColumnIndexOrThrow("map_y")),
-                    isFavorite = cursor.getInt(cursor.getColumnIndexOrThrow("is_favorite")) == 1,
-                    cachedAt = cursor.getLong(cursor.getColumnIndexOrThrow("cached_at"))
-                )
+                return readCachedArtifactCursor(cursor)
             }
         }
         return defaultSeeds.find { it.artifactId == artifactId } ?: defaultSeeds.first()
     }
 
+    fun getAllCachedArtifacts(): List<CachedArtifact> {
+        val list = mutableListOf<CachedArtifact>()
+        readableDatabase.rawQuery(
+            "SELECT * FROM $TABLE_CACHED_ARTIFACT ORDER BY artifact_id ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                list.add(readCachedArtifactCursor(cursor))
+            }
+        }
+        return if (list.isNotEmpty()) list else defaultSeeds
+    }
+
+    private fun readCachedArtifactCursor(cursor: android.database.Cursor): CachedArtifact {
+        return CachedArtifact(
+            artifactId = cursor.getInt(cursor.getColumnIndexOrThrow("artifact_id")),
+            artifactCode = cursor.getString(cursor.getColumnIndexOrThrow("artifact_code")),
+            zoneName = cursor.getString(cursor.getColumnIndexOrThrow("zone_name")),
+            nameVi = cursor.getString(cursor.getColumnIndexOrThrow("name_vi")),
+            nameEn = cursor.getString(cursor.getColumnIndexOrThrow("name_en")),
+            summaryVi = cursor.getString(cursor.getColumnIndexOrThrow("summary_vi")),
+            summaryEn = cursor.getString(cursor.getColumnIndexOrThrow("summary_en")),
+            descriptionVi = cursor.getString(cursor.getColumnIndexOrThrow("description_vi")),
+            descriptionEn = cursor.getString(cursor.getColumnIndexOrThrow("description_en")),
+            imageUrl = cursor.getString(cursor.getColumnIndexOrThrow("image_url")),
+            audioViUrl = cursor.getString(cursor.getColumnIndexOrThrow("audio_vi_url")),
+            audioEnUrl = cursor.getString(cursor.getColumnIndexOrThrow("audio_en_url")),
+            audioDurationSec = cursor.getInt(cursor.getColumnIndexOrThrow("audio_duration_sec")),
+            mapX = cursor.getFloat(cursor.getColumnIndexOrThrow("map_x")),
+            mapY = cursor.getFloat(cursor.getColumnIndexOrThrow("map_y")),
+            isFavorite = cursor.getInt(cursor.getColumnIndexOrThrow("is_favorite")) == 1,
+            cachedAt = cursor.getLong(cursor.getColumnIndexOrThrow("cached_at"))
+        )
+    }
+
+    fun getFavoriteItems(lang: String): List<VisitLogItemDto> {
+        return getAllCachedArtifacts()
+            .filter { it.isFavorite }
+            .map { it.toVisitLogItem(lang) }
+    }
+
+    fun recordLocalVisit(artifactId: Int, durationSec: Int) {
+        val artifact = getCachedArtifactById(artifactId) ?: return
+        val nowFormatted = SimpleDateFormat("dd/MM/yyyy · HH:mm", Locale.getDefault()).format(Date())
+        val values = ContentValues().apply {
+            put("artifact_id", artifact.artifactId)
+            put("artifact_name", artifact.nameVi)
+            put("zone_name", artifact.zoneName)
+            put("summary", artifact.summaryVi)
+            put("image_url", artifact.imageUrl)
+            put("duration_seconds", durationSec.coerceAtLeast(1))
+            put("visited_at", nowFormatted)
+        }
+        writableDatabase.insert(TABLE_VISIT_HISTORY, null, values)
+    }
+
+    fun getLocalVisitHistory(): List<VisitLogItemDto> {
+        val list = mutableListOf<VisitLogItemDto>()
+        readableDatabase.rawQuery(
+            "SELECT * FROM $TABLE_VISIT_HISTORY ORDER BY history_id DESC LIMIT 20",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val aid = cursor.getInt(cursor.getColumnIndexOrThrow("artifact_id"))
+                list.add(
+                    VisitLogItemDto(
+                        log_id = cursor.getInt(cursor.getColumnIndexOrThrow("history_id")),
+                        artifact_id = aid,
+                        artifact_code = "HV-00$aid",
+                        zone_name = cursor.getString(cursor.getColumnIndexOrThrow("zone_name")),
+                        name = cursor.getString(cursor.getColumnIndexOrThrow("artifact_name")),
+                        summary = cursor.getString(cursor.getColumnIndexOrThrow("summary")),
+                        image_url = cursor.getString(cursor.getColumnIndexOrThrow("image_url")),
+                        duration_seconds = cursor.getInt(cursor.getColumnIndexOrThrow("duration_seconds")),
+                        is_favorite = isFavorite(aid),
+                        visited_at = cursor.getString(cursor.getColumnIndexOrThrow("visited_at"))
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun saveLocalFeedback(artifactId: Int, visitorName: String, rating: Int, comment: String): ArtifactFeedbackDto {
+        val nowStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+        val values = ContentValues().apply {
+            put("artifact_id", artifactId)
+            put("visitor_name", visitorName)
+            put("rating", rating.coerceIn(1, 5))
+            put("comment", comment)
+            put("created_at", nowStr)
+        }
+        val id = writableDatabase.insert(TABLE_LOCAL_FEEDBACKS, null, values).toInt()
+        return ArtifactFeedbackDto(
+            feedback_id = id,
+            visitor_name = visitorName,
+            rating = rating.coerceIn(1, 5),
+            comment = comment,
+            created_at = nowStr
+        )
+    }
+
+    fun getLocalFeedbacks(artifactId: Int): List<ArtifactFeedbackDto> {
+        val list = mutableListOf<ArtifactFeedbackDto>()
+        readableDatabase.rawQuery(
+            "SELECT * FROM $TABLE_LOCAL_FEEDBACKS WHERE artifact_id = ? ORDER BY feedback_id DESC",
+            arrayOf(artifactId.toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                list.add(
+                    ArtifactFeedbackDto(
+                        feedback_id = cursor.getInt(cursor.getColumnIndexOrThrow("feedback_id")),
+                        visitor_name = cursor.getString(cursor.getColumnIndexOrThrow("visitor_name")),
+                        rating = cursor.getInt(cursor.getColumnIndexOrThrow("rating")),
+                        comment = cursor.getString(cursor.getColumnIndexOrThrow("comment")),
+                        created_at = cursor.getString(cursor.getColumnIndexOrThrow("created_at"))
+                    )
+                )
+            }
+        }
+        return list
+    }
+
     fun getFallbackDetailResponse(artifactId: Int, lang: String): ArtifactDetailResponse {
         val cached = getCachedArtifactById(artifactId) ?: defaultSeeds.first()
+        val localFeedbacks = getLocalFeedbacks(artifactId)
         val defaultFeedbacks = listOf(
             ArtifactFeedbackDto(
                 feedback_id = 1,
                 visitor_name = "Nguyễn Minh",
                 rating = 5,
                 comment = "Nội dung thuyết minh rất dễ hiểu.",
-                created_at = "2026-11-16"
+                created_at = "18/10/2026"
             ),
             ArtifactFeedbackDto(
                 feedback_id = 2,
                 visitor_name = "Trần Bảo Ngọc",
                 rating = 5,
                 comment = "Thuyết minh tự động rất nhạy, đi tới gần là máy tự hiện thông tin hiện vật rất tiện lợi.",
-                created_at = "2026-11-16"
+                created_at = "18/10/2026"
             )
         )
-        return cached.toDetailResponse(lang, defaultFeedbacks)
+        return cached.toDetailResponse(lang, localFeedbacks + defaultFeedbacks)
     }
 
     fun isFavorite(artifactId: Int): Boolean {
         return getCachedArtifactById(artifactId)?.isFavorite ?: false
+    }
+
+    fun setFavoriteLocal(artifactId: Int, isFavorite: Boolean) {
+        val current = getCachedArtifactById(artifactId) ?: return
+        insertOrUpdateInternal(writableDatabase, current.copy(isFavorite = isFavorite))
     }
 
     fun toggleFavoriteLocal(artifactId: Int): Boolean {
@@ -261,8 +445,10 @@ class LocalArtifactCache private constructor(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "smart_heritage_cache.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
         private const val TABLE_CACHED_ARTIFACT = "CachedArtifact"
+        private const val TABLE_VISIT_HISTORY = "LocalVisitHistory"
+        private const val TABLE_LOCAL_FEEDBACKS = "LocalFeedbacks"
         private const val PREFS_NAME = "smart_heritage_prefs"
         private const val KEY_LAST_DETECTED_ARTIFACT_ID = "last_detected_artifact_id"
         private const val KEY_PREFERRED_LANG = "preferred_lang"
@@ -280,10 +466,10 @@ class LocalArtifactCache private constructor(context: Context) :
             CachedArtifact(
                 artifactId = 1,
                 artifactCode = "HV-001",
-                zoneName = "Sảnh chính · Khu Đông Sơn",
+                zoneName = "Khu trưng bày A · Phòng Đông Sơn",
                 nameVi = "Trống đồng Ngọc Lũ",
                 nameEn = "Ngoc Lu Bronze Drum",
-                summaryVi = "Dấu ấn văn hóa Đông Sơn rực rỡ cách đây hơn 2.500 năm.",
+                summaryVi = "Khám phá giá trị và câu chuyện lịch sử của Trống đồng Ngọc Lũ hơn 2.500 năm tuổi.",
                 summaryEn = "The pinnacle of ancient Dong Son bronze casting culture.",
                 descriptionVi = "Hiện vật phản ánh đời sống văn hóa, kỹ thuật chế tác và nghệ thuật trang trí của cư dân Việt cổ. Trống đồng Ngọc Lũ là một trong những chiếc trống đồng cổ nhất và đẹp nhất thuộc nền văn hóa Đông Sơn (niên đại khoảng 2.500 năm trước). Mặt trống đúc nổi ngôi sao 14 cánh cùng các họa tiết chim Lạc và cảnh sinh hoạt của cư dân Việt cổ.",
                 descriptionEn = "The Ngoc Lu Bronze Drum is the most iconic artifact of the Dong Son culture (dating back 2,500 years). Its tympanum features a 14-pointed star surrounded by Lac birds and scenes of ancient communal life.",
@@ -292,7 +478,8 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioEnUrl = "/static/audio/ngoc-lu-thuyet-minh-en.mp3",
                 audioDurationSec = 250,
                 mapX = 340f,
-                mapY = 215f
+                mapY = 215f,
+                isFavorite = true
             ),
             CachedArtifact(
                 artifactId = 2,
@@ -309,7 +496,8 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioEnUrl = "/static/audio/chu-dau-en.mp3",
                 audioDurationSec = 180,
                 mapX = 520f,
-                mapY = 180f
+                mapY = 180f,
+                isFavorite = true
             ),
             CachedArtifact(
                 artifactId = 3,
@@ -326,7 +514,8 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioEnUrl = "/static/audio/apsara-en.mp3",
                 audioDurationSec = 195,
                 mapX = 280f,
-                mapY = 420f
+                mapY = 420f,
+                isFavorite = true
             ),
             CachedArtifact(
                 artifactId = 4,
@@ -343,7 +532,8 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioEnUrl = "/static/audio/dao-thinh-en.mp3",
                 audioDurationSec = 210,
                 mapX = 410f,
-                mapY = 310f
+                mapY = 310f,
+                isFavorite = false
             ),
             CachedArtifact(
                 artifactId = 5,
@@ -360,7 +550,8 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioEnUrl = "/static/audio/an-vang-en.mp3",
                 audioDurationSec = 240,
                 mapX = 610f,
-                mapY = 450f
+                mapY = 450f,
+                isFavorite = false
             ),
             CachedArtifact(
                 artifactId = 6,
@@ -377,7 +568,8 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioEnUrl = "/static/audio/an-vang-en.mp3",
                 audioDurationSec = 215,
                 mapX = 240f,
-                mapY = 520f
+                mapY = 520f,
+                isFavorite = false
             )
         )
     }

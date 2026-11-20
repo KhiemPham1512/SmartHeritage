@@ -39,6 +39,7 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(ProfileBackground)
+            .statusBarsPadding()
     ) {
         // Header
         Row(
