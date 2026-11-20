@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
@@ -35,6 +36,8 @@ import kotlinx.coroutines.launch
 
 private val SavedBackground = Color(0xFFFAF8F6)
 private val SavedOrange = Color(0xFFB95008)
+private val SavedHeartRed = Color(0xFFDC2626)
+private val SavedHeartUnselected = Color(0xFF94A3B8)
 private val SavedText = Color(0xFF263247)
 private val SavedGray = Color(0xFF718096)
 private val SavedBorder = Color(0xFFE8E5E1)
@@ -53,8 +56,8 @@ fun SavedAndHistoryScreen(
     val cache = remember { LocalArtifactCache.getInstance(context) }
     val repository = remember { ArtifactRepository() }
     val lang = remember { cache.getPreferredLanguage() }
+    val strings = remember(lang) { getAppStrings(lang) }
 
-    // 0 = Tab "Yêu thích", 1 = Tab "Lịch sử"
     var selectedTab by remember { mutableIntStateOf(0) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -62,7 +65,6 @@ fun SavedAndHistoryScreen(
     var favorites by remember { mutableStateOf(cache.getFavoriteItems(lang)) }
     var historyList by remember { mutableStateOf(cache.getLocalVisitHistory()) }
 
-    // Đồng bộ dữ liệu từ API GET /api/visit-logs/me kết hợp bộ nhớ đệm cục bộ (Offline-first)
     LaunchedEffect(lang) {
         favorites = cache.getFavoriteItems(lang)
         historyList = cache.getLocalVisitHistory()
@@ -131,7 +133,7 @@ fun SavedAndHistoryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Đã lưu & Lịch sử",
+                text = strings.savedHistoryTitle,
                 fontSize = 22.sp,
                 fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold,
@@ -149,10 +151,11 @@ fun SavedAndHistoryScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "🔍",
-                    fontSize = 18.sp,
-                    color = SavedOrange
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_search),
+                    contentDescription = null,
+                    tint = SavedOrange,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -165,7 +168,7 @@ fun SavedAndHistoryScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 18.dp, vertical = 6.dp),
                 placeholder = {
-                    Text("Tìm hiện vật đã lưu hoặc lịch sử...", fontSize = 12.sp)
+                    Text(strings.searchPlaceholder, fontSize = 12.sp)
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -188,7 +191,6 @@ fun SavedAndHistoryScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
-            // 1. THANH CHUYỂN 2 TAB: "Yêu thích" | "Lịch sử" (Chuẩn mẫu Figma Trang 9)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -207,7 +209,7 @@ fun SavedAndHistoryScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Yêu thích",
+                        text = strings.tabFavorites,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (selectedTab == 0) SavedOrange else SavedGray
@@ -224,7 +226,7 @@ fun SavedAndHistoryScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Lịch sử",
+                        text = strings.tabHistory,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (selectedTab == 1) SavedOrange else SavedGray
@@ -235,9 +237,8 @@ fun SavedAndHistoryScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             if (selectedTab == 0) {
-                // --- TAB 1: YÊU THÍCH (Kèm Lịch sử tham quan gần đây ở dưới giống hệt Figma Trang 9) ---
                 Text(
-                    text = "Hiện vật bạn đã lưu",
+                    text = strings.savedArtifactsHeading,
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
@@ -256,7 +257,7 @@ fun SavedAndHistoryScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Bạn chưa lưu hiện vật yêu thích nào. Hãy chạm biểu tượng trái tim ♡ ở màn hình Chi tiết hiện vật để lưu lại!",
+                            text = strings.emptyFavoritesText,
                             fontSize = 12.sp,
                             color = SavedGray
                         )
@@ -290,9 +291,8 @@ fun SavedAndHistoryScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Mục Lịch sử tham quan gần đây ở cuối trang giống mẫu Figma Trang 9
                 Text(
-                    text = "Lịch sử tham quan gần đây",
+                    text = strings.recentHistoryHeading,
                     fontSize = 17.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
@@ -304,14 +304,14 @@ fun SavedAndHistoryScreen(
                 filteredHistory.take(3).forEach { hist ->
                     RecentVisitTimelineRow(
                         item = hist,
+                        passedByPrefix = strings.passedByPrefix,
                         onClick = { onArtifactDetail(hist.artifact_id) }
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                 }
             } else {
-                // --- TAB 2: LỊCH SỬ ĐÃ THAM QUAN CHI TIẾT ---
                 Text(
-                    text = "Lịch sử tham quan gần đây",
+                    text = strings.recentHistoryHeading,
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
@@ -323,6 +323,7 @@ fun SavedAndHistoryScreen(
                 filteredHistory.forEach { hist ->
                     RecentVisitTimelineRow(
                         item = hist,
+                        passedByPrefix = strings.passedByPrefix,
                         onClick = { onArtifactDetail(hist.artifact_id) }
                     )
                     Spacer(modifier = Modifier.height(10.dp))
@@ -330,7 +331,7 @@ fun SavedAndHistoryScreen(
                     SavedArtifactCard(
                         item = hist,
                         isFavorite = cache.isFavorite(hist.artifact_id),
-                        subtitleOverride = "Thời gian xem: ${hist.duration_seconds ?: 60} giây · ${hist.zone_name ?: "Khu trưng bày"}",
+                        subtitleOverride = "${strings.durationPrefix}${hist.duration_seconds ?: 60} ${strings.secondsUnit} · ${hist.zone_name ?: ""}",
                         onCardClick = { onArtifactDetail(hist.artifact_id) },
                         onToggleHeart = {
                             cache.toggleFavoriteLocal(hist.artifact_id)
@@ -343,22 +344,15 @@ fun SavedAndHistoryScreen(
             }
         }
 
-        // --- THANH ĐIỀU HƯỚNG DƯỚI CỐ ĐỊNH ---
-        HorizontalDivider(color = SavedBorder)
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(58.dp)
-                .background(Color.White),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SavedNavItem("⌂", "Trang chủ", false, onHome)
-            SavedNavItem("▣", "Bản đồ", false, onMap)
-            SavedNavItem("♡", "Đã lưu", true, {})
-            SavedNavItem("♙", "Cá nhân", false, onProfile)
-        }
+        // --- THANH ĐIỀU HƯỚNG DƯỚI CỐ ĐỊNH (Có navigationBarsPadding) ---
+        SmartHeritageBottomBar(
+            currentTab = BottomNavTab.SAVED,
+            strings = strings,
+            onHome = onHome,
+            onMap = onMap,
+            onFavorites = {},
+            onProfile = onProfile
+        )
     }
 }
 
@@ -409,7 +403,7 @@ private fun SavedArtifactCard(
                 .padding(top = 2.dp)
         ) {
             Text(
-                text = item.name ?: "Hiện vật tiêu biểu",
+                text = item.name ?: "Artifact",
                 fontSize = 15.sp,
                 fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold,
@@ -421,9 +415,7 @@ private fun SavedArtifactCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = subtitleOverride
-                    ?: item.summary
-                    ?: "Khám phá giá trị và câu chuyện lịch sử của hiện vật.",
+                text = subtitleOverride ?: item.summary ?: "",
                 fontSize = 12.sp,
                 color = SavedGray,
                 lineHeight = 17.sp,
@@ -432,6 +424,7 @@ private fun SavedArtifactCard(
             )
         }
 
+        // Chưa bấm tym: viền xám (không đỏ). Đã bấm tym: tim nhỏ màu đỏ.
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -439,11 +432,13 @@ private fun SavedArtifactCard(
                 .clickable { onToggleHeart() },
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = if (isFavorite) "♡" else "♡",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isFavorite) SavedOrange else SavedGray
+            Icon(
+                painter = painterResource(
+                    id = if (isFavorite) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                ),
+                contentDescription = null,
+                tint = if (isFavorite) SavedHeartRed else SavedHeartUnselected,
+                modifier = Modifier.size(if (isFavorite) 16.dp else 18.dp)
             )
         }
     }
@@ -452,6 +447,7 @@ private fun SavedArtifactCard(
 @Composable
 private fun RecentVisitTimelineRow(
     item: VisitLogItemDto,
+    passedByPrefix: String,
     onClick: () -> Unit
 ) {
     Row(
@@ -461,11 +457,13 @@ private fun RecentVisitTimelineRow(
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Text(
-            text = "🕒",
-            fontSize = 14.sp,
-            color = SavedGray,
-            modifier = Modifier.padding(top = 2.dp)
+        Icon(
+            painter = painterResource(id = R.drawable.ic_clock),
+            contentDescription = null,
+            tint = SavedGray,
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(15.dp)
         )
 
         Spacer(modifier = Modifier.width(10.dp))
@@ -480,38 +478,10 @@ private fun RecentVisitTimelineRow(
             Spacer(modifier = Modifier.height(3.dp))
 
             Text(
-                text = "Đã đi ngang qua: ${item.zone_name ?: "Khu trưng bày A"} (${item.name ?: "Hiện vật"})",
+                text = "$passedByPrefix${item.zone_name ?: ""} (${item.name ?: ""})",
                 fontSize = 13.sp,
                 color = SavedText
             )
         }
-    }
-}
-
-@Composable
-private fun SavedNavItem(
-    icon: String,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .clickable { onClick() }
-            .padding(horizontal = 9.dp, vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = icon,
-            fontSize = 17.sp,
-            color = if (selected) SavedOrange else SavedGray
-        )
-
-        Text(
-            text = label,
-            fontSize = 8.sp,
-            color = if (selected) SavedOrange else SavedGray,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-        )
     }
 }

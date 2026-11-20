@@ -479,7 +479,7 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioDurationSec = 250,
                 mapX = 340f,
                 mapY = 215f,
-                isFavorite = true
+                isFavorite = false
             ),
             CachedArtifact(
                 artifactId = 2,
@@ -497,7 +497,7 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioDurationSec = 180,
                 mapX = 520f,
                 mapY = 180f,
-                isFavorite = true
+                isFavorite = false
             ),
             CachedArtifact(
                 artifactId = 3,
@@ -515,7 +515,7 @@ class LocalArtifactCache private constructor(context: Context) :
                 audioDurationSec = 195,
                 mapX = 280f,
                 mapY = 420f,
-                isFavorite = true
+                isFavorite = false
             ),
             CachedArtifact(
                 artifactId = 4,

@@ -57,6 +57,9 @@ class MainActivity : ComponentActivity() {
                             },
                             onGuest = {
                                 navController.navigate("home")
+                            },
+                            onBeaconStation = {
+                                navController.navigate("beacon_simulator")
                             }
                         )
                     }

@@ -30,12 +30,13 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import coil3.compose.AsyncImage
+import com.example.smartheritage_mobile.config.AppStrings
+import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
 import com.example.smartheritage_mobile.config.toFullMediaUrl
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 import com.example.smartheritage_mobile.data.repository.ArtifactRepository
-import com.example.smartheritage_mobile.model.ArtifactFeedbackDto
 import com.example.smartheritage_mobile.model.FavoriteToggleRequestDto
 import com.example.smartheritage_mobile.model.FeedbackCreateRequestDto
 import com.example.smartheritage_mobile.model.VisitLogCreateRequest
@@ -46,6 +47,8 @@ import kotlinx.coroutines.launch
 
 private val DetailBackground = Color(0xFFFAF8F6)
 private val DetailOrange = Color(0xFFB95008)
+private val DetailHeartRed = Color(0xFFDC2626)
+private val DetailHeartUnselected = Color(0xFF94A3B8)
 private val DetailText = Color(0xFF263247)
 private val DetailGray = Color(0xFF718096)
 private val DetailBorder = Color(0xFFE8E5E1)
@@ -64,6 +67,7 @@ fun ArtifactDetailScreen(
     val cache = remember { LocalArtifactCache.getInstance(context) }
     val repository = remember { ArtifactRepository() }
     val lang = remember { cache.getPreferredLanguage() }
+    val strings = remember(lang) { getAppStrings(lang) }
     val openedAtMillis = remember { System.currentTimeMillis() }
 
     // Khởi tạo ngay từ bộ nhớ đệm CachedArtifact để mở tức thì cả khi rời vùng sóng / mất mạng
@@ -106,13 +110,12 @@ fun ArtifactDetailScreen(
 
     var isPlaying by remember { mutableStateOf(false) }
     var isMuted by remember { mutableStateOf(false) }
-    var currentSec by remember { mutableIntStateOf(84) } // Mặc định hiển thị 01:24 theo mẫu Figma khi chưa bấm phát
+    var currentSec by remember { mutableIntStateOf(84) }
     var hasStartedPlayback by remember { mutableStateOf(false) }
     val totalSec = remember(detail.audio_duration_sec) {
         (detail.audio_duration_sec ?: 250).coerceAtLeast(1)
     }
 
-    // Nạp URL file .mp3 vào ExoPlayer khi có dữ liệu hiện vật
     LaunchedEffect(detail.audio_url) {
         val fullAudioUrl = detail.audio_url.toFullMediaUrl()
         if (!fullAudioUrl.isNullOrBlank()) {
@@ -125,7 +128,6 @@ fun ArtifactDetailScreen(
         }
     }
 
-    // Theo dõi trạng thái Player, giải phóng khi thoát màn hình và tự động gửi POST /api/visit-logs (M6)
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -137,11 +139,9 @@ fun ArtifactDetailScreen(
         }
         exoPlayer.addListener(listener)
         onDispose {
-            // 1. Giải phóng ExoPlayer khi thoát màn hình Chi tiết
             exoPlayer.removeListener(listener)
             exoPlayer.release()
 
-            // 2. Tính duration_seconds = (thời_gian_đóng - thời_gian_mở) / 1000 và lưu lịch sử tham quan (M6)
             val durationSeconds = ((System.currentTimeMillis() - openedAtMillis) / 1000L).toInt().coerceAtLeast(1)
             cache.recordLocalVisit(artifactId = artifactId, durationSec = durationSeconds)
 
@@ -173,7 +173,6 @@ fun ArtifactDetailScreen(
             if (exoPlayer.isPlaying && playerPosSec > 0) {
                 currentSec = playerPosSec.coerceAtMost(totalSec)
             } else {
-                // Dự phòng đếm thời gian mượt khi máy ảo/điện thoại test offline chưa bật Server media
                 currentSec = if (currentSec + 1 <= totalSec) currentSec + 1 else 0
                 if (currentSec == 0) {
                     isPlaying = false
@@ -190,8 +189,9 @@ fun ArtifactDetailScreen(
                 .fillMaxSize()
                 .background(DetailBackground)
                 .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
-            // --- TOP BAR CHUẨN FIGMA MÀN HÌNH 6 (Vùng bấm nút ← rộng 44dp nhạy 100%) ---
+            // --- TOP BAR CHUẨN FIGMA MÀN HÌNH 6 ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -205,18 +205,18 @@ fun ArtifactDetailScreen(
                         .clickable(onClick = onBack),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "←",
-                        fontSize = 24.sp,
-                        color = DetailText,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_arrow_back),
+                        contentDescription = null,
+                        tint = DetailText,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.width(4.dp))
 
                 Text(
-                    text = "Chi tiết hiện vật",
+                    text = strings.artifactDetailTitle,
                     fontSize = 20.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
@@ -226,7 +226,7 @@ fun ArtifactDetailScreen(
                         .clickable(onClick = onBack)
                 )
 
-                // Nút Thả tim Yêu thích (Kết nối POST /api/favorites/toggle & Cache cục bộ)
+                // Nút Thả tim Yêu thích: chưa bấm -> viền xám (không đỏ); đã bấm -> tim nhỏ màu đỏ
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -254,10 +254,13 @@ fun ArtifactDetailScreen(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (isFavorite) "♥" else "♡",
-                        fontSize = 22.sp,
-                        color = DetailOrange
+                    Icon(
+                        painter = painterResource(
+                            id = if (isFavorite) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                        ),
+                        contentDescription = null,
+                        tint = if (isFavorite) DetailHeartRed else DetailHeartUnselected,
+                        modifier = Modifier.size(if (isFavorite) 18.dp else 21.dp)
                     )
                 }
             }
@@ -272,7 +275,7 @@ fun ArtifactDetailScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 18.dp, vertical = 16.dp)
             ) {
-                // 1. KHUNG ẢNH HIỆN VẬT (Hiển thị đúng ảnh chụp thật của hiện vật theo tên/ID)
+                // 1. KHUNG ẢNH HIỆN VẬT
                 val fallbackRes = resolveArtifactDrawableRes(
                     imageUrl = detail.image_url,
                     artifactName = detail.name,
@@ -284,7 +287,7 @@ fun ArtifactDetailScreen(
                         artifactName = detail.name,
                         artifactId = detail.artifact_id
                     ),
-                    contentDescription = detail.name ?: "Ảnh hiện vật",
+                    contentDescription = detail.name ?: strings.artifactDetailTitle,
                     placeholder = painterResource(id = fallbackRes),
                     error = painterResource(id = fallbackRes),
                     modifier = Modifier
@@ -299,7 +302,7 @@ fun ArtifactDetailScreen(
 
                 // 2. TÊN HIỆN VẬT & MIÊU TẢ NGẮN GỌN
                 Text(
-                    text = detail.name ?: "Tên hiện vật",
+                    text = detail.name ?: "Artifact",
                     fontSize = 22.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
@@ -309,7 +312,7 @@ fun ArtifactDetailScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = detail.summary ?: detail.zone_name ?: "Miêu tả ngắn gọn",
+                    text = detail.summary ?: detail.zone_name ?: "",
                     fontSize = 13.sp,
                     color = DetailGray,
                     lineHeight = 18.sp
@@ -329,7 +332,6 @@ fun ArtifactDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Nút Play / Pause tròn màu cam
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -355,11 +357,13 @@ fun ArtifactDetailScreen(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (isPlaying) "⏸" else "▶",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
+                            Icon(
+                                painter = painterResource(
+                                    id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                                ),
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
@@ -367,40 +371,38 @@ fun ArtifactDetailScreen(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Thuyết minh hiện vật",
+                                text = strings.audioGuideTitle,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = DetailText
                             )
                             Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                text = if (lang.equals("en", ignoreCase = true)) {
-                                    "Giọng đọc Tiếng Anh"
-                                } else {
-                                    "Giọng đọc Tiếng Việt"
-                                },
+                                text = strings.audioGuideVoice,
                                 fontSize = 12.sp,
                                 color = DetailGray
                             )
                         }
 
-                        // Nút Loa bật/tắt âm thanh
-                        Text(
-                            text = if (isMuted) "🔇" else "🔊",
-                            fontSize = 20.sp,
-                            color = DetailOrange,
-                            modifier = Modifier
-                                .clickable {
-                                    isMuted = !isMuted
-                                    exoPlayer.volume = if (isMuted) 0f else 1f
-                                }
-                                .padding(6.dp)
-                        )
+                        IconButton(
+                            onClick = {
+                                isMuted = !isMuted
+                                exoPlayer.volume = if (isMuted) 0f else 1f
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (isMuted) R.drawable.ic_volume_off else R.drawable.ic_volume_on
+                                ),
+                                contentDescription = null,
+                                tint = DetailOrange,
+                                modifier = Modifier.size(21.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Thanh tiến trình (Progress Bar) màu cam chuẩn Figma
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -427,7 +429,6 @@ fun ArtifactDetailScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Thời gian phát: 01:24 / 04:10
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -461,18 +462,18 @@ fun ArtifactDetailScreen(
                             .background(DetailGreenCircle, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "✓",
-                            color = DetailGreenText,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_check),
+                            contentDescription = null,
+                            tint = DetailGreenText,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Text(
-                        text = "Đã lưu tạm – Bạn có thể vừa đi xa\nvừa nghe tiếp",
+                        text = strings.cachedNotice,
                         color = DetailGreenText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -484,7 +485,7 @@ fun ArtifactDetailScreen(
 
                 // 5. CÂU CHUYỆN LỊCH SỬ
                 Text(
-                    text = "Câu chuyện lịch sử",
+                    text = strings.historicalStoryTitle,
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
@@ -494,8 +495,7 @@ fun ArtifactDetailScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = detail.description
-                        ?: "Hiện vật phản ánh đời sống văn hóa, kỹ thuật chế tác và nghệ thuật trang trí của cư dân Việt cổ. Hãy khám phá thêm những câu chuyện đằng sau từng chi tiết của hiện vật.",
+                    text = detail.description ?: "",
                     fontSize = 14.sp,
                     color = DetailText,
                     lineHeight = 21.sp
@@ -503,13 +503,13 @@ fun ArtifactDetailScreen(
 
                 Spacer(modifier = Modifier.height(22.dp))
 
-                // 6. ĐÁNH GIÁ CỦA KHÁCH THAM QUAN (Bấm vào sao để mở Hộp thoại Màn hình 8)
+                // 6. ĐÁNH GIÁ CỦA KHÁCH THAM QUAN
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Đánh giá của khách tham quan",
+                        text = strings.visitorReviewsTitle,
                         fontSize = 16.sp,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
@@ -518,7 +518,7 @@ fun ArtifactDetailScreen(
                     )
 
                     Text(
-                        text = "Viết đánh giá",
+                        text = strings.writeReviewBtn,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = DetailOrange,
@@ -530,20 +530,22 @@ fun ArtifactDetailScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Hàng 5 ngôi sao màu cam (Chạm vào sao mở ngay Hộp thoại Màn 8 Chia sẻ cảm nhận)
+                // Hàng 5 ngôi sao vector chuẩn
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     for (star in 1..5) {
-                        Text(
-                            text = "☆",
-                            fontSize = 26.sp,
-                            color = DetailOrange,
-                            modifier = Modifier.clickable {
-                                selectedRating = star
-                                showFeedbackDialog = true
-                            }
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_star_outline),
+                            contentDescription = null,
+                            tint = DetailOrange,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    selectedRating = star
+                                    showFeedbackDialog = true
+                                }
                         )
                     }
                 }
@@ -552,7 +554,7 @@ fun ArtifactDetailScreen(
 
                 // 7. BÌNH LUẬN GẦN ĐÂY
                 Text(
-                    text = "Bình luận gần đây",
+                    text = strings.recentCommentsTitle,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = DetailText
@@ -561,7 +563,7 @@ fun ArtifactDetailScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 val latestComment = feedbackList.firstOrNull()?.comment
-                    ?: "Nội dung thuyết minh rất dễ hiểu."
+                    ?: if (strings.isEn) "Very clear and informative audio guide." else "Nội dung thuyết minh rất dễ hiểu."
 
                 Text(
                     text = "“$latestComment”",
@@ -571,13 +573,12 @@ fun ArtifactDetailScreen(
                     lineHeight = 19.sp
                 )
 
-                // Hiển thị thêm các bình luận khác (nếu có)
                 if (feedbackList.size > 1) {
                     Spacer(modifier = Modifier.height(8.dp))
                     feedbackList.drop(1).take(3).forEach { fb ->
                         if (!fb.comment.isNullOrBlank()) {
                             Text(
-                                text = "• ${fb.visitor_name ?: "Khách tham quan"} (${fb.rating ?: 5}★): “${fb.comment}”",
+                                text = "• ${fb.visitor_name ?: "Visitor"} (${fb.rating ?: 5}★): “${fb.comment}”",
                                 fontSize = 12.sp,
                                 color = DetailGray,
                                 modifier = Modifier.padding(vertical = 2.dp)
@@ -590,16 +591,18 @@ fun ArtifactDetailScreen(
             }
         }
 
-        // --- HỘP THOẠI MÀN HÌNH 8: CHIA SẺ CẢM NHẬN CỦA BẠN (CHUẨN FIGMA TRANG 8) ---
+        // --- HỘP THOẠI MÀN HÌNH 8: CHIA SẺ CẢM NHẬN CỦA BẠN ---
         if (showFeedbackDialog) {
             ShareFeedbackDialog(
+                strings = strings,
                 initialRating = selectedRating,
                 onDismiss = { showFeedbackDialog = false },
                 onSubmit = { rating, commentText ->
                     selectedRating = rating
-                    val finalComment = commentText.ifBlank { "Nội dung thuyết minh rất dễ hiểu." }
+                    val finalComment = commentText.ifBlank {
+                        if (strings.isEn) "Very clear and informative audio guide." else "Nội dung thuyết minh rất dễ hiểu."
+                    }
 
-                    // Lưu ngay vào CSDL cục bộ & cập nhật UI tức thì
                     val savedLocal = cache.saveLocalFeedback(
                         artifactId = artifactId,
                         visitorName = "Nguyễn Văn A",
@@ -609,7 +612,6 @@ fun ArtifactDetailScreen(
                     feedbackList = listOf(savedLocal) + feedbackList
                     showFeedbackDialog = false
 
-                    // Gửi đồng bộ lên Backend POST /api/feedbacks
                     coroutineScope.launch {
                         try {
                             repository.submitFeedback(
@@ -632,11 +634,9 @@ fun ArtifactDetailScreen(
     }
 }
 
-/**
- * Hộp thoại Màn hình 8 trên Figma: "Chia sẻ cảm nhận của bạn"
- */
 @Composable
 private fun ShareFeedbackDialog(
+    strings: AppStrings,
     initialRating: Int,
     onDismiss: () -> Unit,
     onSubmit: (rating: Int, comment: String) -> Unit
@@ -659,25 +659,24 @@ private fun ShareFeedbackDialog(
                     .padding(horizontal = 22.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Icon khung hội thoại trong hình tròn cam kem nhạt ở đỉnh
                 Box(
                     modifier = Modifier
                         .size(54.dp)
                         .background(Color(0xFFFFF3E6), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "💬",
-                        fontSize = 22.sp,
-                        color = DetailOrange
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_message),
+                        contentDescription = null,
+                        tint = DetailOrange,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Tiêu đề
                 Text(
-                    text = "Chia sẻ cảm nhận của bạn",
+                    text = strings.feedbackDialogTitle,
                     fontSize = 19.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
@@ -687,9 +686,8 @@ private fun ShareFeedbackDialog(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Phụ đề
                 Text(
-                    text = "Bạn thấy chuyến tham quan thế nào?",
+                    text = strings.feedbackDialogSub,
                     fontSize = 12.sp,
                     color = DetailGray,
                     textAlign = TextAlign.Center
@@ -697,28 +695,27 @@ private fun ShareFeedbackDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Hàng 5 ngôi sao chọn 1..5 sao (Sao đã chọn màu cam, sao chưa chọn màu xám nhạt giống Figma)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     for (star in 1..5) {
                         val isSelected = star <= rating
-                        Text(
-                            text = "☆",
-                            fontSize = 30.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) DetailOrange else Color(0xFFCBD5E1),
-                            modifier = Modifier.clickable {
-                                rating = star
-                            }
+                        Icon(
+                            painter = painterResource(
+                                id = if (isSelected) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+                            ),
+                            contentDescription = null,
+                            tint = if (isSelected) DetailOrange else Color(0xFFCBD5E1),
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clickable { rating = star }
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Ô nhập cảm nhận nhiều dòng
                 OutlinedTextField(
                     value = comment,
                     onValueChange = { comment = it },
@@ -727,7 +724,7 @@ private fun ShareFeedbackDialog(
                         .height(112.dp),
                     placeholder = {
                         Text(
-                            text = "Chia sẻ cảm nhận của bạn...",
+                            text = strings.feedbackPlaceholder,
                             fontSize = 12.sp,
                             color = DetailGray
                         )
@@ -743,7 +740,6 @@ private fun ShareFeedbackDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Nút Gửi đánh giá màu cam
                 Button(
                     onClick = { onSubmit(rating, comment.trim()) },
                     modifier = Modifier
@@ -756,7 +752,7 @@ private fun ShareFeedbackDialog(
                     )
                 ) {
                     Text(
-                        text = "Gửi đánh giá",
+                        text = strings.submitFeedbackBtn,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -764,9 +760,8 @@ private fun ShareFeedbackDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Nút Hủy
                 Text(
-                    text = "Hủy",
+                    text = strings.cancelBtn,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = DetailGray,
