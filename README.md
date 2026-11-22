@@ -371,6 +371,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 * Kiểm tra Swagger UI tại: **`http://localhost:8000/docs`**
 * Kiểm tra kết nối Database tại: **`http://localhost:8000/api/health-db`**
+* (Tùy chọn, để demo W2) Sinh 30 ngày lượt tham quan mẫu: `.\.venv\Scripts\python scripts\seed_demo_visits.py` — xóa lại bằng thêm `--clear`.
 
 ### Bước 3: Cài đặt & Khởi chạy Cổng Quản trị `admin-web` (Terminal 2)
 

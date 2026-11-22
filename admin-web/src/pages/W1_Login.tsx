@@ -1,6 +1,6 @@
 // FILE: admin-web/src/pages/W1_Login.tsx
 import { useState, type FormEvent, type CSSProperties } from "react";
-import { apiFetch, STAFF_ROLES, type UserInfo } from "../api";
+import { apiFetch, saveSession, STAFF_ROLES, type UserInfo } from "../api";
 
 const W1_ASSETS = {
   leftCircleLogo: "/logo_cong_dinh_tron.svg",
@@ -21,15 +21,17 @@ interface LoginResponse {
 }
 
 export default function W1_Login({ onLoginSuccess }: W1LoginProps) {
-  const [email, setEmail] = useState<string>("ngocanh@smartheritage.vn");
-  const [password, setPassword] = useState<string>("123456");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [infoMsg, setInfoMsg] = useState<string>("");
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg("");
+    setInfoMsg("");
     setLoading(true);
     try {
       const data = await apiFetch<LoginResponse>("/api/auth/login", {
@@ -39,8 +41,7 @@ export default function W1_Login({ onLoginSuccess }: W1LoginProps) {
       if (!STAFF_ROLES.includes(data.user.role)) {
         throw new Error("Tài khoản này không có quyền truy cập trang quản trị.");
       }
-      localStorage.setItem("sh_token", data.access_token);
-      localStorage.setItem("sh_user", JSON.stringify(data.user));
+      saveSession(data.access_token, data.user, rememberMe);
       onLoginSuccess(data.access_token, data.user);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Đăng nhập thất bại");
@@ -98,7 +99,8 @@ export default function W1_Login({ onLoginSuccess }: W1LoginProps) {
             <h2 style={formHeadingStyle}>Đăng Nhập Quản Trị</h2>
             <p style={formSubHeadingStyle}>Vui lòng nhập thông tin để tiếp tục</p>
 
-            {errorMsg ? <div style={errorBoxStyle}>{errorMsg}</div> : null}
+            {errorMsg ? <div style={errorBoxStyle} role="alert">{errorMsg}</div> : null}
+            {infoMsg ? <div style={infoBoxStyle} role="status">{infoMsg}</div> : null}
 
             <div style={{ marginBottom: 18 }}>
               <label style={inputLabelStyle}>Email</label>
@@ -133,17 +135,20 @@ export default function W1_Login({ onLoginSuccess }: W1LoginProps) {
                 <span>Ghi nhớ đăng nhập</span>
               </label>
 
-              <span style={{ fontSize: 13, color: "#d97706", fontWeight: 600, cursor: "pointer" }}>
+              <button
+                type="button"
+                onClick={() => setInfoMsg("Vui lòng liên hệ Quản trị viên hệ thống để được cấp lại mật khẩu.")}
+                style={forgotLinkStyle}
+              >
                 Quên mật khẩu?
-              </span>
+              </button>
             </div>
 
             <button type="submit" disabled={loading} style={loginButtonStyle}>
               <span>{loading ? "Đang xử lý..." : "Đăng Nhập"}</span>
               <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
             </button>
-
-            <div style={systemNoteStyle}>Hệ thống quản lý di sản thông minh</div>
+
           </form>
         </div>
 
@@ -157,7 +162,7 @@ const splitScreenStyle: CSSProperties = {
   display: "flex",
   width: "100%",
   height: "100vh",
-  backgroundColor: "#ffffff",
+  backgroundColor: "#f8fafc",
   overflow: "hidden",
 };
 
@@ -235,7 +240,7 @@ const brandSubtitleStyle: CSSProperties = {
 const rightPanelStyle: CSSProperties = {
   width: "60%",
   height: "100vh",
-  backgroundColor: "#ffffff",
+  backgroundColor: "#f8fafc",
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
@@ -329,12 +334,25 @@ const loginButtonStyle: CSSProperties = {
   boxShadow: "0 4px 12px rgba(139, 30, 24, 0.22)",
 };
 
-const systemNoteStyle: CSSProperties = {
-  textAlign: "center",
-  fontSize: 12,
-  fontWeight: 400,
-  color: "#94a3b8",
-  marginTop: 48,
+const forgotLinkStyle: CSSProperties = {
+  fontSize: 13,
+  color: "#d97706",
+  fontWeight: 600,
+  cursor: "pointer",
+  background: "none",
+  border: "none",
+  padding: 0,
+};
+
+const infoBoxStyle: CSSProperties = {
+  backgroundColor: "#fffbeb",
+  color: "#92400e",
+  border: "1px solid #fcd34d",
+  padding: "10px 12px",
+  borderRadius: 6,
+  fontSize: 13,
+  fontWeight: 600,
+  marginBottom: 16,
 };
 
 const footerCopyStyle: CSSProperties = {
