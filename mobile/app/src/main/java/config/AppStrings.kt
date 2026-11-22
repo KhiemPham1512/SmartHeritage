@@ -30,7 +30,6 @@ data class AppStrings(
     val orDivider: String = if (isEn) "  OR  " else "  HOẶC  ",
     val continueGuestBtn: String = if (isEn) "Continue as Guest" else "Tiếp tục với tư cách Khách (Guest)",
     val guestSub: String = if (isEn) "Explore heritage without an account" else "Khám phá di sản không cần tài khoản",
-    val beaconStationShortcut: String = if (isEn) "iBeacon Transmitter Mode (Demo)" else "Chế độ Phát sóng iBeacon (Máy trạm)",
     val createAccountTitle: String = if (isEn) "Create Account" else "Tạo tài khoản",
     val createAccountSub: String = if (isEn) "Save your discovery journey" else "Lưu lại hành trình khám phá của bạn",
     val termsNotice: String = if (isEn) "By signing up, you agree to the Terms" else "Bằng việc đăng ký, bạn đồng ý với Điều khoản",
@@ -110,8 +109,6 @@ data class AppStrings(
     val autoBeaconOn: String = if (isEn) "Notifications enabled" else "Bật thông báo",
     val autoBeaconOff: String = if (isEn) "Notifications disabled" else "Tắt thông báo",
     val helpSupportTitle: String = if (isEn) "Help & Support" else "Trợ giúp & hỗ trợ",
-    val simulatorModeTitle: String = if (isEn) "iBeacon Transmitter (Multi-Phone)" else "Phát sóng iBeacon (Test nhiều máy)",
-    val simulatorModeSub: String = if (isEn) "Turn this phone into a real iBeacon station" else "Biến điện thoại này thành cục phát iBeacon thật",
     val logoutBtn: String = if (isEn) "Sign Out" else "Đăng xuất",
 
     // Máy chủ & tài khoản (GĐ4)

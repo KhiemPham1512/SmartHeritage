@@ -73,9 +73,6 @@ class MainActivity : ComponentActivity() {
                             },
                             onGuest = {
                                 navController.navigate("home")
-                            },
-                            onBeaconStation = {
-                                navController.navigate("beacon_simulator")
                             }
                         )
                     }
@@ -191,18 +188,6 @@ class MainActivity : ComponentActivity() {
                             },
                             onFavorites = {
                                 navController.navigate("favorites")
-                            },
-                            onSimulator = {
-                                navController.navigate("beacon_simulator")
-                            }
-                        )
-                    }
-
-                    // Màn hình giả lập iBeacon (Test / Demo M3/M4 & M8)
-                    composable("beacon_simulator") {
-                        BeaconSimulatorScreen(
-                            onBack = {
-                                navController.popBackStack()
                             }
                         )
                     }
