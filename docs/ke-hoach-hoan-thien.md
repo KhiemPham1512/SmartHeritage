@@ -48,15 +48,15 @@ Mỗi giai đoạn một nhánh `feature/*` từ `develop`, một PR, merge khi 
 - [x] Đăng nhập Web chỉ cho ADMIN/CONTENT_MANAGER; mật khẩu PBKDF2 có salt; dữ liệu mẫu đã băm; script `backend/scripts/rehash_plaintext_passwords.py` cho DB cũ.
 - [x] Upload: giới hạn kích thước (ảnh 10 MB, MP3 20 MB, MP4 100 MB), tên file uuid. Khách chỉ thấy hiện vật PUBLISHED. `GET /api/beacons/public` cho beacon-sim.
 - [x] `resolve` kiểm cả UUID (tùy chọn, mobile cũ vẫn chạy). [ ] dùng `sp_AssignBeaconSafe_UpdLock` khi gán beacon (đúng nội dung môn HQTCSDL).
-- [ ] `GET /api/analytics/dashboard?from=&to=` có lọc ngày, KPI thời lượng xem trung bình, % so với kỳ trước.
+- [x] `GET /api/analytics/dashboard?from=&to=` có lọc ngày, KPI thời lượng xem trung bình, % so với kỳ trước, pin yếu/mất tín hiệu; export CSV theo cùng khoảng ngày.
 - [ ] Theo Figma: gallery ảnh/video (dùng cột `gallery_json` sẵn có), lý do ẩn bình luận, khóa tài khoản, lọc theo site/tầng cho bản đồ.
 - [ ] (Chờ quyết định, mục 4) Bảng ngôn ngữ + bản dịch nhiều ngôn ngữ; CRUD Sites.
 - Nghiệm thu: test pytest cho 401/403 theo vai trò, hash mật khẩu, resolve, dashboard có lọc ngày.
 
 ### GĐ2 — W1, W2 theo Figma + dữ liệu thật (TV1, ~1 ngày)
-- [ ] W1: ghi nhớ đăng nhập (localStorage khi tích, sessionStorage khi không), báo lỗi khi tài khoản không có quyền quản trị, "Quên mật khẩu?" theo Figma; 401 → tự đăng xuất.
-- [ ] W2: mọi biểu đồ lấy từ API, chọn khoảng ngày, trạng thái rỗng/lỗi; Xuất Excel kèm token; Xuất PDF bằng trang in có CSS riêng.
-- [ ] So từng chi tiết với ảnh Figma W1/W2.
+- [x] W1: ghi nhớ đăng nhập (localStorage khi tích, sessionStorage khi không), báo lỗi khi tài khoản không có quyền quản trị, "Quên mật khẩu?" theo Figma; 401 → tự đăng xuất.
+- [x] W2: mọi biểu đồ lấy từ API, chọn khoảng ngày, trạng thái rỗng/lỗi; Xuất Excel kèm token; Xuất PDF bằng trang in có CSS riêng.
+- [x] So từng chi tiết với ảnh Figma W1/W2 (chụp màn hình thật, header có chuông/avatar/vai trò). Dữ liệu demo: `backend/scripts/seed_demo_visits.py` (`--clear` để xóa).
 
 ### GĐ3 — W3–W8 theo Figma (gốc: TV3/TV4/TV5; thực hiện: TV1 + Claude, ~1,5 ngày)
 - [ ] Thay icon bằng bộ icon trong `docs/local/logos/` (W3 thẻ thống kê, W5 thiết bị, W6 điểm iBeacon + lối vào, W7 đánh giá).

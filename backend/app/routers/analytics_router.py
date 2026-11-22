@@ -1,6 +1,7 @@
 # FILE: backend/app/routers/analytics_router.py
 import io
 import csv
+from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
@@ -205,18 +206,53 @@ def delete_feedback(feedback_id: int, db: Session = Depends(get_db)):
     return {"message": f"Đã xóa đánh giá #{feedback_id}"}
 
 
+def percent_change(current: int, previous: int) -> float | None:
+    if not previous:
+        return None
+    return round((current - previous) * 100.0 / previous, 1)
+
+
+def resolve_range(date_from: date | None, date_to: date | None) -> tuple[date, date]:
+    # Mặc định 30 ngày gần nhất (tính cả hôm nay)
+    end = date_to or date.today()
+    start = date_from or (end - timedelta(days=29))
+    if start > end:
+        raise HTTPException(status_code=400, detail="Ngày bắt đầu phải trước hoặc bằng ngày kết thúc")
+    return start, end
+
+
+# visited_at là DATETIME2 → so sánh nửa mở [from, to + 1 ngày)
+IN_RANGE = "visited_at >= :d_from AND visited_at < DATEADD(day, 1, :d_to)"
+
+
 @router.get("/analytics/dashboard", dependencies=[Depends(require_staff)])
-def get_dashboard_analytics(db: Session = Depends(get_db)):
+def get_dashboard_analytics(
+    date_from: date | None = Query(None, alias="from", description="YYYY-MM-DD, mặc định 29 ngày trước 'to'"),
+    date_to: date | None = Query(None, alias="to", description="YYYY-MM-DD, mặc định hôm nay"),
+    db: Session = Depends(get_db)
+):
     # Phục vụ toàn bộ màn hình W2: 4 thẻ KPI + Top 10 hiện vật + Lượt khách theo ngày + Ngôn ngữ sử dụng
-    kpi = db.execute(text("""
+    start, end = resolve_range(date_from, date_to)
+    span = (end - start).days + 1
+    params = {"d_from": start, "d_to": end,
+              "p_from": start - timedelta(days=span), "p_to": start - timedelta(days=1)}
+
+    kpi = dict(db.execute(text(f"""
         SELECT
-            (SELECT COUNT(*) FROM dbo.VisitLogs) AS total_visits,
-            (SELECT COUNT(*) FROM dbo.Artifacts WHERE status = 'PUBLISHED') AS total_artifacts,
+            (SELECT COUNT(*) FROM dbo.VisitLogs WHERE {IN_RANGE}) AS total_visits,
+            (SELECT COUNT(*) FROM dbo.VisitLogs
+              WHERE visited_at >= :p_from AND visited_at < DATEADD(day, 1, :p_to)) AS prev_visits,
+            (SELECT COALESCE(AVG(duration_seconds), 0) FROM dbo.VisitLogs WHERE {IN_RANGE}) AS avg_duration_sec,
+            (SELECT COUNT(*) FROM dbo.Artifacts) AS total_artifacts,
+            (SELECT COUNT(*) FROM dbo.Artifacts WHERE status = 'PUBLISHED') AS published_artifacts,
             (SELECT COUNT(*) FROM dbo.Beacons WHERE status = 'ACTIVE') AS active_beacons,
             (SELECT COUNT(*) FROM dbo.Beacons) AS total_beacons,
-            (SELECT ROUND( COALESCE(AVG(CAST(rating AS FLOAT)), 5.0), 1 ) FROM dbo.Feedbacks WHERE is_visible = 1) AS avg_rating,
+            (SELECT COUNT(*) FROM dbo.Beacons WHERE status = 'LOW_BATTERY') AS low_battery_count,
+            (SELECT COUNT(*) FROM dbo.Beacons WHERE status = 'LOST_SIGNAL') AS lost_signal_count,
+            (SELECT ROUND(COALESCE(AVG(CAST(rating AS FLOAT)), 0), 1) FROM dbo.Feedbacks WHERE is_visible = 1) AS avg_rating,
             (SELECT COUNT(*) FROM dbo.Feedbacks WHERE is_visible = 1) AS total_reviews
-    """)).mappings().first()
+    """), params).mappings().first())
+    kpi["visits_change_pct"] = percent_change(kpi["total_visits"], kpi["prev_visits"])
 
     top_artifacts = db.execute(text("""
         SELECT TOP 10
@@ -228,39 +264,45 @@ def get_dashboard_analytics(db: Session = Depends(get_db)):
             COALESCE(AVG(v.duration_seconds), 0) AS avg_duration_sec
         FROM dbo.Artifacts a
         LEFT JOIN dbo.VisitLogs v ON a.artifact_id = v.artifact_id
+             AND v.visited_at >= :d_from AND v.visited_at < DATEADD(day, 1, :d_to)
         GROUP BY a.artifact_id, a.artifact_code, a.name_vi, a.zone_name
         ORDER BY visit_count DESC, a.artifact_code ASC
-    """)).mappings().all()
+    """), params).mappings().all()
 
-    daily_visits = db.execute(text("""
-        SELECT 
-            CONVERT(VARCHAR(10), visited_at, 23) AS visit_date,
-            COUNT(*) AS visit_count
+    daily_visits = db.execute(text(f"""
+        SELECT CONVERT(VARCHAR(10), visited_at, 23) AS visit_date, COUNT(*) AS visit_count
         FROM dbo.VisitLogs
+        WHERE {IN_RANGE}
         GROUP BY CONVERT(VARCHAR(10), visited_at, 23)
         ORDER BY visit_date ASC
-    """)).mappings().all()
+    """), params).mappings().all()
 
-    language_dist = db.execute(text("""
-        SELECT 
-            UPPER(lang_used) AS language_code,
-            COUNT(*) AS usage_count
+    language_dist = db.execute(text(f"""
+        SELECT UPPER(lang_used) AS language_code, COUNT(*) AS usage_count
         FROM dbo.VisitLogs
+        WHERE {IN_RANGE}
         GROUP BY UPPER(lang_used)
         ORDER BY usage_count DESC
-    """)).mappings().all()
+    """), params).mappings().all()
 
     return {
-        "kpi": dict(kpi),
+        "range": {"from": start.isoformat(), "to": end.isoformat()},
+        "kpi": kpi,
         "top_artifacts": [dict(r) for r in top_artifacts],
         "daily_visits": [dict(r) for r in daily_visits],
-        "language_distribution": [dict(r) for r in language_dist]
+        "language_distribution": [dict(r) for r in language_dist],
+        "generated_at": datetime.now().isoformat(timespec="minutes"),
     }
 
 
 @router.get("/analytics/export-csv", dependencies=[Depends(require_staff)])
-def export_analytics_report_csv(db: Session = Depends(get_db)):
+def export_analytics_report_csv(
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    db: Session = Depends(get_db)
+):
     # Phục vụ nút "Xuất Excel" trên màn hình W2 (Định dạng CSV UTF-8-SIG mở trực tiếp bằng Excel)
+    start, end = resolve_range(date_from, date_to)
     rows = db.execute(text("""
         SELECT 
             a.artifact_code,
@@ -273,9 +315,10 @@ def export_analytics_report_csv(db: Session = Depends(get_db)):
         FROM dbo.Artifacts a
         LEFT JOIN dbo.Beacons b ON a.artifact_id = b.artifact_id
         LEFT JOIN dbo.VisitLogs v ON a.artifact_id = v.artifact_id
+             AND v.visited_at >= :d_from AND v.visited_at < DATEADD(day, 1, :d_to)
         GROUP BY a.artifact_id, a.artifact_code, a.name_vi, a.zone_name, b.beacon_code
         ORDER BY total_visits DESC
-    """)).mappings().all()
+    """), {"d_from": start, "d_to": end}).mappings().all()
 
     output = io.StringIO()
     output.write("\ufeff")  # BOM UTF-8 giúp Microsoft Excel hiển thị chuẩn tiếng Việt
@@ -294,5 +337,5 @@ def export_analytics_report_csv(db: Session = Depends(get_db)):
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=SmartHeritage_Report.csv"}
+        headers={"Content-Disposition": f"attachment; filename=SmartHeritage_Report_{start}_{end}.csv"}
     )

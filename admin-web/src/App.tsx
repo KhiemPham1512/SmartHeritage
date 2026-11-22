@@ -1,6 +1,7 @@
 // FILE: admin-web/src/App.tsx
 import { useState, type CSSProperties } from "react";
-import { type UserInfo } from "./api";
+import { Bell, ChevronDown } from "lucide-react";
+import { clearSession, getSavedUser, getToken, type UserInfo } from "./api";
 import W1_Login from "./pages/W1_Login";
 import W2_Dashboard from "./pages/W2_Dashboard";
 import W3_Artifacts from "./pages/W3_Artifacts";
@@ -30,12 +31,20 @@ const MENU_ITEMS: Array<{ key: string; label: string; iconUrl: string }> = [
   { key: "W8", label: "Ngôn ngữ & tài khoản", iconUrl: LAYOUT_ICONS.menuW8 },
 ];
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Quản trị viên",
+  CONTENT_MANAGER: "Quản lý nội dung",
+};
+
+// "Ngọc Anh (Admin)" → "NA"
+function initials(name?: string): string {
+  const words = (name ?? "").replace(/\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean);
+  return words.slice(-2).map((w) => w[0]).join("").toUpperCase() || "?";
+}
+
 export default function App() {
-  const [token, setToken] = useState<string>(localStorage.getItem("sh_token") || "");
-  const [user, setUser] = useState<UserInfo | null>(() => {
-    const saved = localStorage.getItem("sh_user");
-    return saved ? (JSON.parse(saved) as UserInfo) : null;
-  });
+  const [token, setToken] = useState<string>(getToken);
+  const [user, setUser] = useState<UserInfo | null>(getSavedUser);
   const [activeScreen, setActiveScreen] = useState<string>("W2");
   const [editingArtifactId, setEditingArtifactId] = useState<string | null>(null);
   const openArtifactForm = (id: number | null) => {
@@ -50,8 +59,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("sh_token");
-    localStorage.removeItem("sh_user");
+    clearSession();
     setToken("");
     setUser(null);
   };
@@ -66,11 +74,11 @@ export default function App() {
       : MENU_ITEMS.find((m) => m.key === activeScreen)?.label || "Thống kê & báo cáo";
 
   return (
-    <div style={appLayoutStyle}>
+    <div className="print-flow" style={appLayoutStyle}>
       {/* ================================================================= */}
       {/* SIDEBAR TRÁI (GỌN CHIỀU DỌC ĐỂ VỪA KHÍT MÀN HÌNH 100%)            */}
       {/* ================================================================= */}
-      <aside style={sidebarStyle}>
+      <aside className="no-print" style={sidebarStyle}>
         <div>
           <div style={sidebarBrandCardStyle}>
             <div style={sidebarLogoLineRowStyle}>
@@ -170,8 +178,8 @@ export default function App() {
       {/* ================================================================= */}
       {/* CỘT PHẢI: TOP HEADER BAR + NỘI DUNG MÀN HÌNH                      */}
       {/* ================================================================= */}
-      <div style={rightContentWrapperStyle}>
-        <header style={topHeaderStyle}>
+      <div className="print-flow" style={rightContentWrapperStyle}>
+        <header className="no-print" style={topHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
             <span style={{ color: "#475569", fontWeight: 600 }}>Web Admin</span>
             <span style={{ color: "#64748b", fontWeight: 700 }}>›</span>
@@ -179,16 +187,20 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <span style={demoDataPillStyle}>Dữ liệu minh họa</span>
+            <Bell size={18} color="#334155" aria-label="Thông báo" />
+            <div style={{ width: 1, height: 24, backgroundColor: "#e2e8f0" }} />
 
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={avatarCircleStyle}>NA</div>
+              <div style={avatarCircleStyle}>{initials(user?.full_name)}</div>
               <div style={{ lineHeight: 1.2 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: "#0f172a" }}>
-                  {user ? user.full_name : "Ngọc Anh"}
+                  {user?.full_name ?? ""}
                 </div>
-                <div style={{ fontSize: 11.5, color: "#334155", fontWeight: 600 }}>Quản trị viên</div>
+                <div style={{ fontSize: 11.5, color: "#334155", fontWeight: 600 }}>
+                  {ROLE_LABELS[user?.role ?? ""] ?? user?.role}
+                </div>
               </div>
+              <ChevronDown size={16} color="#475569" />
               <button type="button" onClick={handleLogout} style={logoutSmallBtnStyle}>
                 Đăng xuất
               </button>
@@ -196,7 +208,7 @@ export default function App() {
           </div>
         </header>
 
-        <main style={mainScrollAreaStyle}>
+        <main className="print-flow" style={mainScrollAreaStyle}>
           {activeScreen === "W2" && <W2_Dashboard />}
           {activeScreen === "W3" && (
             <W3_Artifacts onAdd={() => openArtifactForm(null)} onEdit={(id) => openArtifactForm(id)} />
@@ -330,16 +342,6 @@ const topHeaderStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   flexShrink: 0,
-};
-
-const demoDataPillStyle: CSSProperties = {
-  backgroundColor: "#fde68a",
-  border: "1px solid #f59e0b",
-  color: "#78350f",
-  fontSize: 12,
-  fontWeight: 800,
-  padding: "3px 10px",
-  borderRadius: 999,
 };
 
 const avatarCircleStyle: CSSProperties = {

@@ -27,3 +27,20 @@ select,
 textarea {
   font-family: inherit;
 }
+/* Xuất PDF (W2): ẩn khung điều hướng, bỏ cuộn để in trọn trang */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body,
+  #root,
+  .print-flow {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
