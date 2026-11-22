@@ -80,3 +80,4 @@ Desktop.ini
 # Claude Code (personal, do not commit)
 .claude/local/
 .claude/settings.local.json
+.codegraph/
