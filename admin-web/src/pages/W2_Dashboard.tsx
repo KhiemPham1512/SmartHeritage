@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronDown, Download, FileDown, Users } from "lucide-react";
 import { apiFetch, downloadWithAuth } from "../api";
+import { MaskIcon } from "../ui";
 
 interface DashboardResponse {
   range: { from: string; to: string };
@@ -300,20 +301,6 @@ export default function W2_Dashboard() {
 }
 
 // ---------- thành phần con ----------
-function MaskIcon({ src, color = RED, size = 19 }: { src: string; color?: string; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        width: size, height: size, display: "inline-block", backgroundColor: color,
-        WebkitMaskImage: `url('${src}')`, maskImage: `url('${src}')`,
-        WebkitMaskSize: "contain", maskSize: "contain",
-        WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat",
-      }}
-    />
-  );
-}
-
 function KpiCard(props: { label: string; icon: ReactNode; value: string; sub: string; subColor?: string }) {
   return (
     <div style={kpiCardStyle}>

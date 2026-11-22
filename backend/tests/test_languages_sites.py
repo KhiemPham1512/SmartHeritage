@@ -102,6 +102,21 @@ def test_coordinates_go_through_updlock_sp(client):
 
 
 @needs_db
+def test_next_artifact_code_fills_gap(client):
+    as_role("CONTENT_MANAGER")
+    code = client.get("/api/artifacts/next-code").json()["next_code"]
+    assert code.startswith("HV-") and len(code) == 6
+    existing = {a["artifact_code"] for a in client.get("/api/artifacts").json()}
+    assert code not in existing
+    # SP lấp chỗ trống: mọi mã nhỏ hơn đều đã tồn tại
+    assert all(f"HV-{i:03d}" in existing for i in range(1, int(code[3:])))
+
+
+def test_next_artifact_code_requires_staff(client):
+    assert client.get("/api/artifacts/next-code").status_code == 401
+
+
+@needs_db
 def test_sites_public_list(client):
     sites = client.get("/api/sites").json()
     assert sites and {"site_id", "name_vi", "name_en", "floor_name"} <= set(sites[0])
