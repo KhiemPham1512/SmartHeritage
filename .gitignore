@@ -81,3 +81,7 @@ Desktop.ini
 .claude/local/
 .claude/settings.local.json
 .codegraph/
+beacon-sim/.gradle/
+beacon-sim/build/
+beacon-sim/app/build/
+beacon-sim/local.properties

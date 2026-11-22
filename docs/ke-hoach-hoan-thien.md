@@ -72,6 +72,7 @@ Mỗi giai đoạn một nhánh `feature/*` từ `develop`, một PR, merge khi 
 - [ ] Bỏ màn giả lập khỏi app khách sau khi GĐ5 chạy ổn.
 
 ### GĐ5 — App giả lập trạm phát `beacon-sim/` (TV1 + Claude, ~1 ngày)
+- [x] Đã dựng app + unit test; hướng dẫn demo 2 điện thoại: `beacon-sim/README.md`. [ ] Kiểm tay trên 2 điện thoại thật (TV1).
 - App Android riêng (Kotlin + Compose + AltBeacon `BeaconTransmitter`), cài trên điện thoại thứ 2.
 - Nhập địa chỉ server → `GET /api/beacons` → danh sách BC-xxx (UUID/Major/Minor/TxPower, hiện vật, trạng thái). Mất mạng thì dùng 5 beacon mẫu.
 - Chạm để phát / dừng; chọn mức công suất phát (thấp/trung bình/cao) để mô phỏng đứng gần/xa; báo lỗi khi máy không hỗ trợ BLE advertising.
