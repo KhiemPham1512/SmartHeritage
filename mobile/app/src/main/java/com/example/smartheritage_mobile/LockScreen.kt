@@ -42,8 +42,7 @@ private val LoginBorder = Color(0xFFE8E5E1)
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onRegister: () -> Unit,
-    onGuest: () -> Unit,
-    onBeaconStation: () -> Unit = {}
+    onGuest: () -> Unit
 ) {
     val context = LocalContext.current
     val cache = remember { LocalArtifactCache.getInstance(context) }
@@ -348,36 +347,7 @@ fun LoginScreen(
             color = LoginGray
         )
 
-        Spacer(modifier = Modifier.height(22.dp))
-
-        // Nút mở nhanh chế độ Phát sóng iBeacon (1 chạm biến điện thoại thành máy phát cho demo nhiều máy)
-        OutlinedButton(
-            onClick = onBeaconStation,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(42.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color(0xFFFFF5EA),
-                contentColor = LoginOrange
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD8B8))
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_antenna),
-                contentDescription = null,
-                tint = LoginOrange,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = strings.beaconStationShortcut,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Text(
             text = strings.serverLabel + ": " + (ServerAddress.normalize(serverShown) ?: strings.serverAuto),

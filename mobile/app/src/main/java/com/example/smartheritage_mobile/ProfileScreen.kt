@@ -38,8 +38,7 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onHome: () -> Unit,
     onMap: () -> Unit,
-    onFavorites: () -> Unit,
-    onSimulator: () -> Unit = {}
+    onFavorites: () -> Unit
 ) {
     val context = LocalContext.current
     val cache = remember { LocalArtifactCache.getInstance(context) }
@@ -298,50 +297,6 @@ fun ProfileScreen(
                     fontWeight = FontWeight.Bold,
                     color = ProfileText
                 )
-
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_chevron_right),
-                    contentDescription = null,
-                    tint = ProfileGray,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // iBeacon Transmitter Mode (Multi-Phone Demo)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .background(Color.White, RoundedCornerShape(11.dp))
-                    .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
-                    .clickable { onSimulator() }
-                    .padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_antenna),
-                    contentDescription = null,
-                    tint = ProfileOrange,
-                    modifier = Modifier.size(20.dp)
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        strings.simulatorModeTitle,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ProfileText
-                    )
-                    Text(
-                        strings.simulatorModeSub,
-                        fontSize = 10.sp,
-                        color = ProfileGray
-                    )
-                }
 
                 Icon(
                     painter = painterResource(id = R.drawable.ic_chevron_right),

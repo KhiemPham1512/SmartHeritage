@@ -15,7 +15,6 @@
     <!-- Quyền Bluetooth mới (Android 12+) -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
 
     <!-- Quyền truy cập mạng cục bộ trên Android -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
