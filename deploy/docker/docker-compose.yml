@@ -1,0 +1,79 @@
+# Chạy:   cd deploy/docker
+#         cp .env.example .env      (điền DB_PASSWORD, JWT_SECRET)
+#         docker compose up -d --build
+# HTTPS với tên miền:  đặt DOMAIN và API_BIND=127.0.0.1 trong .env rồi  docker compose --profile https up -d --build
+name: smartheritage
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Express            # miễn phí (giới hạn 10 GB/DB, 1,4 GB RAM)
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?Đặt DB_PASSWORD trong deploy/docker/.env}
+    volumes:
+      - dbdata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # Chạy một lần: tạo CSDL nếu chưa có, ngược lại chỉ áp migration (không xóa dữ liệu)
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ../../database:/database:ro
+      - ./db-init.sh:/db-init.sh:ro
+    entrypoint: ["/bin/bash", "/db-init.sh"]
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      USE_WINDOWS_AUTH: "false"
+      DB_SERVER: db
+      DB_NAME: SmartHeritageDB
+      DB_USER: sa
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Đặt JWT_SECRET (>= 32 ký tự) trong deploy/docker/.env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    volumes:
+      - static:/app/static          # ảnh/MP3 Admin tải lên (lần đầu được chép từ image: có sẵn dữ liệu mẫu)
+    ports:
+      - "${API_BIND:-0.0.0.0}:${HTTP_PORT:-8000}:8000"
+
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      DOMAIN: ${DOMAIN:?Đặt DOMAIN trong deploy/docker/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  dbdata:
+  static:
+  caddy_data:
+  caddy_config:
