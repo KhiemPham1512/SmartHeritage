@@ -15,7 +15,7 @@
 | `update-handoff` (dự án) | Cuối phiên / người dùng gõ "update" | — |
 | `agy-worker` | Chỉ việc lớn khi bridge có sẵn (`agy.md`) | Việc 1–3 file |
 
-CodeGraph: repo chưa có `.codegraph/` → không dùng; người dùng quyết định `codegraph init -i`.
+CodeGraph: đã `codegraph init` (2026-11-22, `.codegraph/` không commit). Dùng `codegraph_explore` trước grep khi cần luồng gọi xuyên module; không tự `init/index/sync` mỗi lượt.
 
 ## Tìm skill (không nhảy bước)
 1. Danh sách skill của phiên + `.claude/skills/` + bảng trên.

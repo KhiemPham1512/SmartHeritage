@@ -461,13 +461,16 @@ GO
 -- =========================================================================
 BEGIN TRAN;
 
+-- Mật khẩu mẫu 123456 đã băm PBKDF2-SHA256 (app/auth.py hash_password); dùng chung một hash cho 5 tài khoản demo
+DECLARE @seed_pwd VARCHAR(255) = 'pbkdf2_sha256$200000$921c73a6f7273c2e54e934bbb0449a53$86d690b4a1a4e727f9aa52cff0a75c6a26a7beafb4a0335d1997726166076da8';
+
 INSERT INTO dbo.Users (email, password_hash, full_name, role, preferred_lang, is_active)
 VALUES 
-('ngocanh@smartheritage.vn', '123456', N'Ngọc Anh (Admin)', 'ADMIN', 'vi', 1),
-('minhduc@smartheritage.vn', '123456', N'Trần Minh Đức', 'CONTENT_MANAGER', 'vi', 1),
-('lethuha@smartheritage.vn', '123456', N'Lê Thu Hà', 'CONTENT_MANAGER', 'en', 1),
-('nguyenvana@email.com', '123456', N'Nguyễn Văn A', 'VISITOR', 'vi', 1),
-('john.davis@gmail.com', '123456', N'John Davis', 'VISITOR', 'en', 1);
+('ngocanh@smartheritage.vn', @seed_pwd, N'Ngọc Anh (Admin)', 'ADMIN', 'vi', 1),
+('minhduc@smartheritage.vn', @seed_pwd, N'Trần Minh Đức', 'CONTENT_MANAGER', 'vi', 1),
+('lethuha@smartheritage.vn', @seed_pwd, N'Lê Thu Hà', 'CONTENT_MANAGER', 'en', 1),
+('nguyenvana@email.com', @seed_pwd, N'Nguyễn Văn A', 'VISITOR', 'vi', 1),
+('john.davis@gmail.com', @seed_pwd, N'John Davis', 'VISITOR', 'en', 1);
 
 INSERT INTO dbo.Sites (name_vi, name_en, description_vi, description_en, address, floor_name, map_image_url)
 VALUES (

@@ -38,16 +38,16 @@ Người đọc: cả nhóm. Nguồn chuẩn: `docs/nghiepvu.md` (nghiệp vụ)
 Mỗi giai đoạn một nhánh `feature/*` từ `develop`, một PR, merge khi TV1 duyệt.
 
 ### GĐ0 — Dọn nền (làm ngay, ~0,5 ngày)
-- [ ] PR `main → develop` để đồng bộ M6 (TV1 duyệt).
-- [ ] Sửa build web: bổ sung `src/types.ts`, `mediaUrl`, `uploadMedia` trong `api.ts`, nối props W3/W4 trong `App.tsx` (lấy lại từ nhánh `feature/web-w3-w4`/`minhtam` nếu còn); sửa 5 lỗi lint; commit `lucide-react`.
-- [ ] Khung test `backend/tests/` (pytest + TestClient).
+- [x] Đồng bộ M6: nhánh `feature/gd0-nen-tang` tạo từ `develop` + `main` (PR vào develop sẽ mang theo M6).
+- [x] Sửa build web: bổ sung `src/types.ts`, `mediaUrl`, `uploadMedia` trong `api.ts`, nối props W3/W4 trong `App.tsx` (lấy lại từ nhánh `feature/web-w3-w4`/`minhtam` nếu còn); sửa 5 lỗi lint; commit `lucide-react`.
+- [x] Khung test `backend/tests/` (pytest + TestClient).
 - Nghiệm thu: `npm run build` và `npm run lint` sạch; `pytest` chạy được.
 
 ### GĐ1 — Backend: bảo mật + nghiệp vụ còn thiếu (TV1, ~1,5 ngày)
-- [ ] `require_role(...)` cho mọi API quản trị; `/api/users*` chỉ ADMIN; API khách giữ mở cho Guest.
-- [ ] Đăng nhập Web chỉ cho ADMIN/CONTENT_MANAGER; mật khẩu hash có salt (PBKDF2 thư viện chuẩn), sửa dữ liệu mẫu trong `init_schema.sql`.
-- [ ] Upload: giới hạn kích thước, tên file uuid.
-- [ ] `resolve` kiểm cả UUID; dùng `sp_AssignBeaconSafe_UpdLock` khi gán beacon (đúng nội dung môn HQTCSDL).
+- [x] `require_staff`/`require_admin` cho mọi API quản trị; `/api/users*` chỉ ADMIN; API khách giữ mở cho Guest.
+- [x] Đăng nhập Web chỉ cho ADMIN/CONTENT_MANAGER; mật khẩu PBKDF2 có salt; dữ liệu mẫu đã băm; script `backend/scripts/rehash_plaintext_passwords.py` cho DB cũ.
+- [x] Upload: giới hạn kích thước (ảnh 10 MB, MP3 20 MB, MP4 100 MB), tên file uuid. Khách chỉ thấy hiện vật PUBLISHED. `GET /api/beacons/public` cho beacon-sim.
+- [x] `resolve` kiểm cả UUID (tùy chọn, mobile cũ vẫn chạy). [ ] dùng `sp_AssignBeaconSafe_UpdLock` khi gán beacon (đúng nội dung môn HQTCSDL).
 - [ ] `GET /api/analytics/dashboard?from=&to=` có lọc ngày, KPI thời lượng xem trung bình, % so với kỳ trước.
 - [ ] Theo Figma: gallery ảnh/video (dùng cột `gallery_json` sẵn có), lý do ẩn bình luận, khóa tài khoản, lọc theo site/tầng cho bản đồ.
 - [ ] (Chờ quyết định, mục 4) Bảng ngôn ngữ + bản dịch nhiều ngôn ngữ; CRUD Sites.

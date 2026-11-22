@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas import BeaconCreate, BeaconUpdate, BeaconCoordinateUpdate, SiteMapUpdate
+from app.auth import require_staff
 
 router = APIRouter(prefix="/api", tags=["3. iBeacons & Floor Map (M3 - W5, W6, Mobile 7)"])
 
 
-@router.get("/beacons/stats")
+@router.get("/beacons/stats", dependencies=[Depends(require_staff)])
 def get_beacons_kpi_cards(db: Session = Depends(get_db)):
     # Phục vụ 4 thẻ KPI đầu màn hình W5: Tổng số Beacon, Đang hoạt động, Pin yếu, Mất tín hiệu
     row = db.execute(text("""
@@ -23,7 +24,20 @@ def get_beacons_kpi_cards(db: Session = Depends(get_db)):
     return dict(row)
 
 
-@router.get("/beacons")
+@router.get("/beacons/public")
+def get_public_beacon_signals(db: Session = Depends(get_db)):
+    # Cho app beacon-sim: chỉ các số mà beacon vốn phát công khai qua sóng BLE, không có pin/tọa độ
+    rows = db.execute(text("""
+        SELECT b.beacon_code, b.uuid, b.major, b.minor, b.tx_power, b.trigger_distance, b.status,
+               a.artifact_code, a.name_vi AS artifact_name_vi, a.name_en AS artifact_name_en
+        FROM dbo.Beacons b
+        LEFT JOIN dbo.Artifacts a ON b.artifact_id = a.artifact_id
+        ORDER BY b.beacon_code ASC
+    """)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/beacons", dependencies=[Depends(require_staff)])
 def get_all_beacons(
     status: str = Query(None, description="Lọc theo trạng thái: ACTIVE, LOW_BATTERY, LOST_SIGNAL"),
     search: str = Query(None, description="Tìm kiếm theo mã BC-001, UUID hoặc tên hiện vật"),
@@ -65,7 +79,7 @@ def get_all_beacons(
     return [dict(r) for r in rows]
 
 
-@router.post("/beacons")
+@router.post("/beacons", dependencies=[Depends(require_staff)])
 def create_beacon(req: BeaconCreate, db: Session = Depends(get_db)):
     # Kiểm tra trùng mã BC-xxx hoặc cặp (UUID, Major, Minor)
     dup = db.execute(
@@ -103,7 +117,7 @@ def create_beacon(req: BeaconCreate, db: Session = Depends(get_db)):
     return dict(row)
 
 
-@router.put("/beacons/{beacon_id}")
+@router.put("/beacons/{beacon_id}", dependencies=[Depends(require_staff)])
 def update_beacon(beacon_id: int, req: BeaconUpdate, db: Session = Depends(get_db)):
     exists = db.execute(text("SELECT beacon_id FROM dbo.Beacons WHERE beacon_id = :id"), {"id": beacon_id}).first()
     if not exists:
@@ -138,7 +152,7 @@ def update_beacon(beacon_id: int, req: BeaconUpdate, db: Session = Depends(get_d
     return {"message": f"Đã cập nhật thiết bị iBeacon #{beacon_id} thành công"}
 
 
-@router.put("/beacons/{beacon_id}/coordinates")
+@router.put("/beacons/{beacon_id}/coordinates", dependencies=[Depends(require_staff)])
 def update_beacon_map_position(beacon_id: int, req: BeaconCoordinateUpdate, db: Session = Depends(get_db)):
     # Phục vụ nút "Cập nhật tọa độ" ở khung bên phải màn hình W6 (Bản đồ khu di tích)
     beacon = db.execute(
@@ -187,7 +201,7 @@ def update_beacon_map_position(beacon_id: int, req: BeaconCoordinateUpdate, db: 
     return {"message": "Đã cập nhật tọa độ trên bản đồ khu di tích thành công"}
 
 
-@router.delete("/beacons/{beacon_id}")
+@router.delete("/beacons/{beacon_id}", dependencies=[Depends(require_staff)])
 def delete_beacon(beacon_id: int, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM dbo.Beacons WHERE beacon_id = :id"), {"id": beacon_id})
     db.commit()
@@ -246,7 +260,7 @@ def get_interactive_floor_map(
     }
 
 
-@router.put("/sites/{site_id}/map")
+@router.put("/sites/{site_id}/map", dependencies=[Depends(require_staff)])
 def update_site_floorplan_image(site_id: int, req: SiteMapUpdate, db: Session = Depends(get_db)):
     db.execute(
         text("""

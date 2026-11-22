@@ -9,7 +9,7 @@ from app.schemas import (
     AdminUserCreate, AdminUserUpdate
 )
 from app.auth import (
-    hash_password, verify_password, create_access_token, get_current_user
+    hash_password, verify_password, create_access_token, get_current_user, require_admin
 )
 
 router = APIRouter(prefix="/api", tags=["1. Auth & Users (M1 - W1, W8, Mobile 1,2,3,10)"])
@@ -108,7 +108,7 @@ def update_my_profile(
     return {"message": "Cập nhật hồ sơ cá nhân thành công"}
 
 
-@router.get("/users")
+@router.get("/users", dependencies=[Depends(require_admin)])
 def list_users_for_admin(
     search: str = Query(None, description="Tìm kiếm theo tên hoặc email"),
     db: Session = Depends(get_db)
@@ -126,7 +126,7 @@ def list_users_for_admin(
     return [dict(r) for r in rows]
 
 
-@router.post("/users")
+@router.post("/users", dependencies=[Depends(require_admin)])
 def admin_create_user(req: AdminUserCreate, db: Session = Depends(get_db)):
     exists = db.execute(text("SELECT user_id FROM dbo.Users WHERE email = :e"), {"e": req.email}).first()
     if exists:
@@ -150,7 +150,7 @@ def admin_create_user(req: AdminUserCreate, db: Session = Depends(get_db)):
     return dict(row)
 
 
-@router.put("/users/{user_id}")
+@router.put("/users/{user_id}", dependencies=[Depends(require_admin)])
 def admin_update_user(user_id: int, req: AdminUserUpdate, db: Session = Depends(get_db)):
     db.execute(
         text("""

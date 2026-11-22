@@ -1,6 +1,6 @@
 // FILE: admin-web/src/pages/W1_Login.tsx
 import { useState, type FormEvent, type CSSProperties } from "react";
-import { apiFetch, type UserInfo } from "../api";
+import { apiFetch, STAFF_ROLES, type UserInfo } from "../api";
 
 const W1_ASSETS = {
   leftCircleLogo: "/logo_cong_dinh_tron.svg",
@@ -36,6 +36,9 @@ export default function W1_Login({ onLoginSuccess }: W1LoginProps) {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      if (!STAFF_ROLES.includes(data.user.role)) {
+        throw new Error("Tài khoản này không có quyền truy cập trang quản trị.");
+      }
       localStorage.setItem("sh_token", data.access_token);
       localStorage.setItem("sh_user", JSON.stringify(data.user));
       onLoginSuccess(data.access_token, data.user);

@@ -51,6 +51,7 @@ def resolve_beacon_artifact(
     major: int = Query(..., description="Mã Major (VD: 1)"),
     minor: int = Query(..., description="Mã Minor (VD: 101)"),
     lang: str = Query("vi", description="Ngôn ngữ: vi hoặc en"),
+    uuid: str | None = Query(None, description="UUID iBeacon (tùy chọn; có thì phải khớp)"),
     db: Session = Depends(get_db)
 ):
     query = text("""
@@ -71,11 +72,12 @@ def resolve_beacon_artifact(
             a.map_x, a.map_y
         FROM dbo.Beacons b
         INNER JOIN dbo.Artifacts a ON b.artifact_id = a.artifact_id
-        WHERE b.major = :major AND b.minor = :minor 
-          AND b.status IN ('ACTIVE', 'LOW_BATTERY') 
+        WHERE b.major = :major AND b.minor = :minor
+          AND (:uuid IS NULL OR UPPER(b.uuid) = UPPER(:uuid))
+          AND b.status IN ('ACTIVE', 'LOW_BATTERY')
           AND a.status = 'PUBLISHED'
     """)
-    row = db.execute(query, {"major": major, "minor": minor, "lang": lang}).mappings().first()
+    row = db.execute(query, {"major": major, "minor": minor, "lang": lang, "uuid": uuid}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Không tìm thấy hiện vật gắn với iBeacon này.")
 
