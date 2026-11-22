@@ -47,10 +47,11 @@ Mỗi giai đoạn một nhánh `feature/*` từ `develop`, một PR, merge khi 
 - [x] `require_staff`/`require_admin` cho mọi API quản trị; `/api/users*` chỉ ADMIN; API khách giữ mở cho Guest.
 - [x] Đăng nhập Web chỉ cho ADMIN/CONTENT_MANAGER; mật khẩu PBKDF2 có salt; dữ liệu mẫu đã băm; script `backend/scripts/rehash_plaintext_passwords.py` cho DB cũ.
 - [x] Upload: giới hạn kích thước (ảnh 10 MB, MP3 20 MB, MP4 100 MB), tên file uuid. Khách chỉ thấy hiện vật PUBLISHED. `GET /api/beacons/public` cho beacon-sim.
-- [x] `resolve` kiểm cả UUID (tùy chọn, mobile cũ vẫn chạy). [ ] dùng `sp_AssignBeaconSafe_UpdLock` khi gán beacon (đúng nội dung môn HQTCSDL).
+- [x] `resolve` kiểm cả UUID (tùy chọn, mobile cũ vẫn chạy). [x] Cập nhật tọa độ W6 gọi `sp_AssignBeaconSafe_UpdLock`.
 - [x] `GET /api/analytics/dashboard?from=&to=` có lọc ngày, KPI thời lượng xem trung bình, % so với kỳ trước, pin yếu/mất tín hiệu; export CSV theo cùng khoảng ngày.
 - [ ] Theo Figma: gallery ảnh/video (dùng cột `gallery_json` sẵn có), lý do ẩn bình luận, khóa tài khoản, lọc theo site/tầng cho bản đồ.
-- [ ] (Chờ quyết định, mục 4) Bảng ngôn ngữ + bản dịch nhiều ngôn ngữ; CRUD Sites.
+- [x] Bảng `Languages` + `ArtifactTranslations` + hàm `fn_LocalizedArtifacts` (chưa dịch → lùi về tiếng Anh); API `/api/languages`, `/api/artifacts/{id}/translations/{lang}`; CRUD `/api/sites` (ẩn bằng `is_active`, không xóa).
+- [x] Migration cho DB cũ `database/migrations/` + `backend/scripts/apply_migrations.py`. **Phát hiện: DB máy TV1 thiếu toàn bộ 7 SP, 2 View, 3 Index** (tạo từ script cũ) → đã bổ sung; mọi thành viên cần chạy `apply_migrations.py`.
 - Nghiệm thu: test pytest cho 401/403 theo vai trò, hash mật khẩu, resolve, dashboard có lọc ngày.
 
 ### GĐ2 — W1, W2 theo Figma + dữ liệu thật (TV1, ~1 ngày)

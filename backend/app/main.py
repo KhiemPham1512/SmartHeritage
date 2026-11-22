@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db, DRIVER, DB_SERVER, DB_NAME
-from app.routers import auth_router, artifact_router, beacon_router, analytics_router
+from app.routers import auth_router, artifact_router, beacon_router, analytics_router, language_router
 
 app = FastAPI(
     title="Smart Heritage API",
@@ -32,6 +32,7 @@ app.include_router(auth_router.router)
 app.include_router(artifact_router.router)
 app.include_router(beacon_router.router)
 app.include_router(analytics_router.router)
+app.include_router(language_router.router)
 
 
 @app.get("/api/health-db", tags=["0. System Health (M0)"])
@@ -63,15 +64,16 @@ def resolve_beacon_artifact(
             a.artifact_id,
             a.artifact_code,
             a.zone_name,
-            CASE WHEN :lang = 'en' THEN a.name_en ELSE a.name_vi END AS name,
-            CASE WHEN :lang = 'en' THEN a.summary_en ELSE a.summary_vi END AS summary,
-            CASE WHEN :lang = 'en' THEN a.description_en ELSE a.description_vi END AS description,
+            l.name AS name,
+            l.summary AS summary,
+            l.description AS description,
             a.image_url,
-            CASE WHEN :lang = 'en' THEN a.audio_en_url ELSE a.audio_vi_url END AS audio_url,
+            l.audio_url AS audio_url,
             a.audio_duration_sec,
             a.map_x, a.map_y
         FROM dbo.Beacons b
         INNER JOIN dbo.Artifacts a ON b.artifact_id = a.artifact_id
+        LEFT JOIN dbo.fn_LocalizedArtifacts(:lang) l ON l.artifact_id = a.artifact_id
         WHERE b.major = :major AND b.minor = :minor
           AND (:uuid IS NULL OR UPPER(b.uuid) = UPPER(:uuid))
           AND b.status IN ('ACTIVE', 'LOW_BATTERY')
