@@ -123,7 +123,7 @@ flowchart LR
 | Framework RESTful API | `fastapi==0.115.0` + `uvicorn[standard]==0.30.6` (Tự động sinh Swagger UI tại `/docs`) |
 | Kết nối Cơ sở dữ liệu | `sqlalchemy==2.0.35` + `pyodbc==5.1.0` |
 | Kiểm tra dữ liệu & Biến môi trường | `pydantic==2.9.2` + `python-dotenv==1.0.1` |
-| Xác thực & Phân quyền | `HTTPBearer JWT (HS256)` + `SHA-256 Password Hashing` + `RBAC` (`app/auth.py`) |
+| Xác thực & Phân quyền | `HTTPBearer JWT (HS256)` + mật khẩu băm `PBKDF2-SHA256` có salt + `RBAC` (`require_staff` / `require_admin` trong `app/auth.py`): API quản trị cần token ADMIN/CONTENT_MANAGER, quản lý tài khoản chỉ ADMIN |
 | Upload & Phục vụ file Ảnh / MP3 | `python-multipart==0.0.12` + `FastAPI StaticFiles` |
 | Xuất báo cáo thống kê | `StreamingResponse CSV (UTF-8-SIG BOM)` tương thích trực tiếp với Microsoft Excel |
 
@@ -327,6 +327,7 @@ Bất kỳ thành viên nào sau khi `git clone` dự án (hoặc `git pull orig
    * *Ghi nhớ tên **Server name** ở màn hình đăng nhập SSMS (ví dụ: `.\SQLEXPRESS`, `localhost`, hoặc `TEN_MAY\SQLEXPRESS`).*
 2. Chọn **File** $\rightarrow$ **Open** $\rightarrow$ **File...**, mở file **`database/init_schema.sql`** trong thư mục dự án.
 3. Nhấn **`F5` (Execute)** để tạo CSDL `SmartHeritageDB` (bao gồm 6 bảng, 3 Indexes, 2 Views, 7 Stored Procedures xử lý giao tác đồng thời và dữ liệu mẫu).
+4. **Máy đã tạo DB trước ngày 22/11/2026** (mật khẩu mẫu lưu dạng thô) không cần chạy lại script: sau khi cài backend ở Bước 2, chạy `.\.venv\Scripts\python scripts\rehash_plaintext_passwords.py` trong thư mục `backend` để băm lại mật khẩu (mật khẩu đăng nhập không đổi).
 
 ### Bước 2: Thiết lập Môi trường ảo Python 3.12 & Khởi chạy Backend FastAPI (Terminal 1)
 

@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.auth import require_staff
 from app.schemas import (
     VisitLogCreate, FavoriteToggleRequest,
     FeedbackCreate, FeedbackVisibilityUpdate
@@ -129,7 +130,7 @@ def submit_feedback(req: FeedbackCreate, db: Session = Depends(get_db)):
 # =========================================================================
 # M7: KIỂM DUYỆT ĐÁNH GIÁ (WEB W7) & THỐNG KÊ DASHBOARD + XUẤT BÁO CÁO (WEB W2)
 # =========================================================================
-@router.get("/feedbacks")
+@router.get("/feedbacks", dependencies=[Depends(require_staff)])
 def list_feedbacks_for_moderation(
     rating: int = Query(None, description="Lọc theo số sao: 1..5"),
     is_visible: bool = Query(None, description="Lọc trạng thái: true (Hiển thị), false (Đã ẩn)"),
@@ -182,7 +183,7 @@ def list_feedbacks_for_moderation(
     }
 
 
-@router.put("/feedbacks/{feedback_id}/visibility")
+@router.put("/feedbacks/{feedback_id}/visibility", dependencies=[Depends(require_staff)])
 def moderate_feedback_visibility(
     feedback_id: int,
     req: FeedbackVisibilityUpdate,
@@ -197,14 +198,14 @@ def moderate_feedback_visibility(
     return {"message": f"Đã chuyển trạng thái bình luận #{feedback_id} sang: {status_str}"}
 
 
-@router.delete("/feedbacks/{feedback_id}")
+@router.delete("/feedbacks/{feedback_id}", dependencies=[Depends(require_staff)])
 def delete_feedback(feedback_id: int, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM dbo.Feedbacks WHERE feedback_id = :fid"), {"fid": feedback_id})
     db.commit()
     return {"message": f"Đã xóa đánh giá #{feedback_id}"}
 
 
-@router.get("/analytics/dashboard")
+@router.get("/analytics/dashboard", dependencies=[Depends(require_staff)])
 def get_dashboard_analytics(db: Session = Depends(get_db)):
     # Phục vụ toàn bộ màn hình W2: 4 thẻ KPI + Top 10 hiện vật + Lượt khách theo ngày + Ngôn ngữ sử dụng
     kpi = db.execute(text("""
@@ -257,7 +258,7 @@ def get_dashboard_analytics(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/analytics/export-csv")
+@router.get("/analytics/export-csv", dependencies=[Depends(require_staff)])
 def export_analytics_report_csv(db: Session = Depends(get_db)):
     # Phục vụ nút "Xuất Excel" trên màn hình W2 (Định dạng CSV UTF-8-SIG mở trực tiếp bằng Excel)
     rows = db.execute(text("""

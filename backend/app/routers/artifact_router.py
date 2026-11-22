@@ -1,18 +1,25 @@
 # FILE: backend/app/routers/artifact_router.py
 import os
-import time
-import shutil
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas import ArtifactCreate, ArtifactUpdate
+from app.auth import require_staff, get_optional_user, STAFF_ROLES
 
 router = APIRouter(prefix="/api", tags=["2. Artifacts CMS & Media (M2 - W3, W4, Mobile 4,6,7)"])
 
+# Đuôi file -> (thư mục static, dung lượng tối đa MB) theo giới hạn ghi trên Figma W4
+UPLOAD_RULES = {
+    ".jpg": ("images", 10), ".jpeg": ("images", 10), ".png": ("images", 10), ".webp": ("images", 10),
+    ".mp3": ("audio", 20), ".wav": ("audio", 20), ".m4a": ("audio", 20),
+    ".mp4": ("videos", 100),
+}
 
-@router.get("/artifacts/stats")
+
+@router.get("/artifacts/stats", dependencies=[Depends(require_staff)])
 def get_artifacts_kpi_cards(db: Session = Depends(get_db)):
     row = db.execute(text("""
         SELECT
@@ -32,8 +39,11 @@ def get_artifacts(
     status: str = Query(None, description="Lọc trạng thái: PUBLISHED, DRAFT, HIDDEN"),
     zone: str = Query(None, description="Lọc theo khu trưng bày"),
     search: str = Query(None, description="Tìm theo tên hoặc mã HV-001"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: dict | None = Depends(get_optional_user)
 ):
+    if not user or user["role"] not in STAFF_ROLES:
+        status = "PUBLISHED"  # khách/app mobile chỉ thấy hiện vật đã xuất bản
     sql = """
         SELECT 
             a.artifact_id,
@@ -81,7 +91,8 @@ def get_artifacts(
 def get_artifact_detail(
     artifact_id: int,
     lang: str = Query("vi", description="Ngôn ngữ: vi hoặc en"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: dict | None = Depends(get_optional_user)
 ):
     row = db.execute(
         text("""
@@ -99,7 +110,8 @@ def get_artifact_detail(
         {"id": artifact_id, "lang": lang}
     ).mappings().first()
 
-    if not row:
+    is_staff = bool(user) and user["role"] in STAFF_ROLES
+    if not row or (row["status"] != "PUBLISHED" and not is_staff):
         raise HTTPException(status_code=404, detail="Không tìm thấy hiện vật")
 
     feedbacks = db.execute(
@@ -117,7 +129,7 @@ def get_artifact_detail(
     return result
 
 
-@router.post("/artifacts")
+@router.post("/artifacts", dependencies=[Depends(require_staff)])
 def create_artifact(req: ArtifactCreate, db: Session = Depends(get_db)):
     exists = db.execute(
         text("SELECT artifact_id FROM dbo.Artifacts WHERE artifact_code = :c"),
@@ -148,7 +160,7 @@ def create_artifact(req: ArtifactCreate, db: Session = Depends(get_db)):
     return dict(row)
 
 
-@router.put("/artifacts/{artifact_id}")
+@router.put("/artifacts/{artifact_id}", dependencies=[Depends(require_staff)])
 def update_artifact(artifact_id: int, req: ArtifactUpdate, db: Session = Depends(get_db)):
     exists = db.execute(text("SELECT artifact_id FROM dbo.Artifacts WHERE artifact_id = :id"), {"id": artifact_id}).first()
     if not exists:
@@ -181,29 +193,33 @@ def update_artifact(artifact_id: int, req: ArtifactUpdate, db: Session = Depends
     return {"message": f"Đã cập nhật hiện vật #{artifact_id} thành công"}
 
 
-@router.delete("/artifacts/{artifact_id}")
+@router.delete("/artifacts/{artifact_id}", dependencies=[Depends(require_staff)])
 def delete_artifact(artifact_id: int, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM dbo.Artifacts WHERE artifact_id = :id"), {"id": artifact_id})
     db.commit()
     return {"message": f"Đã xóa hiện vật #{artifact_id}"}
 
 
-@router.post("/upload/media")
+@router.post("/upload/media", dependencies=[Depends(require_staff)])
 def upload_media_file(file: UploadFile = File(...)):
-    ext = os.path.splitext(file.filename)[1].lower()
-    timestamp = int(time.time())
-    safe_name = f"media_{timestamp}{ext}"
-
-    if ext in [".mp3", ".wav", ".m4a"]:
-        folder = "audio"
-    elif ext in [".jpg", ".jpeg", ".png", ".webp"]:
-        folder = "images"
-    else:
-        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file ảnh (.jpg, .png, .webp) hoặc âm thanh (.mp3, .wav)")
-
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in UPLOAD_RULES:
+        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ ảnh (.jpg, .png, .webp), âm thanh (.mp3, .wav, .m4a) hoặc video (.mp4)")
+    folder, max_mb = UPLOAD_RULES[ext]
+    safe_name = f"media_{uuid.uuid4().hex}{ext}"
     save_path = os.path.join("static", folder, safe_name)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    written = 0
     with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        while chunk := file.file.read(1024 * 1024):
+            written += len(chunk)
+            if written > max_mb * 1024 * 1024:
+                break
+            buffer.write(chunk)
+    if written > max_mb * 1024 * 1024:
+        os.remove(save_path)
+        raise HTTPException(status_code=413, detail=f"File vượt quá giới hạn {max_mb} MB")
 
     return {
         "filename": safe_name,

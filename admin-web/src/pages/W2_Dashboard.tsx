@@ -1,6 +1,6 @@
 // FILE: admin-web/src/pages/W2_Dashboard.tsx
 import { useState, useEffect, type CSSProperties } from "react";
-import { API_BASE, apiFetch } from "../api";
+import { apiFetch, downloadWithAuth } from "../api";
 
 const W2_ICONS: Record<string, string> = {
   kpiVisitors: "",
@@ -97,14 +97,15 @@ export default function W2_Dashboard() {
             <span>01/03/2026 - 30/03/2026</span>
           </button>
 
-          <a
-            href={API_BASE + "/api/analytics/export-csv"}
-            target="_blank"
-            rel="noreferrer"
-            style={excelBtnStyle}
+          <button
+            type="button"
+            onClick={() => {
+              downloadWithAuth("/api/analytics/export-csv", "SmartHeritage_Report.csv").catch((e: Error) => alert(e.message));
+            }}
+            style={{ ...excelBtnStyle, cursor: "pointer" }}
           >
             <span>Xuất Excel</span>
-          </a>
+          </button>
 
           <button type="button" onClick={() => window.print()} style={pdfBtnStyle}>
             <span>Xuất PDF</span>

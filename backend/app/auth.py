@@ -18,14 +18,29 @@ TOKEN_EXPIRE_SECONDS = 60 * 60 * 24 * 7  # 7 ngày
 security_scheme = HTTPBearer(auto_error=False)
 
 
+PBKDF2_ITERATIONS = 200_000
+
+
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
 
 
 def verify_password(plain_password: str, stored_hash: str) -> bool:
-    if plain_password == stored_hash:
-        return True
-    return hash_password(plain_password) == stored_hash
+    if stored_hash.startswith("pbkdf2_sha256$"):
+        try:
+            _, iterations, salt_hex, digest_hex = stored_hash.split("$")
+            digest = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"),
+                                         bytes.fromhex(salt_hex), int(iterations))
+        except ValueError:
+            return False
+        return hmac.compare_digest(digest.hex(), digest_hex)
+    # Tài khoản đăng ký trước khi đổi sang PBKDF2 lưu SHA-256 hex (64 ký tự); không chấp nhận mật khẩu thô.
+    if len(stored_hash) == 64:
+        legacy = hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
+        return hmac.compare_digest(legacy, stored_hash.lower())
+    return False
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -93,3 +108,31 @@ def get_current_user(
     if not row or not row["is_active"]:
         raise HTTPException(status_code=403, detail="Tài khoản không tồn tại hoặc đã bị khóa")
     return dict(row)
+
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+    db: Session = Depends(get_db)
+) -> dict | None:
+    """Dùng cho API công khai có thêm quyền khi người gọi là nhân viên (vd. xem hiện vật bản nháp)."""
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        return get_current_user(credentials, db)
+    except HTTPException:
+        return None
+
+
+STAFF_ROLES = ("ADMIN", "CONTENT_MANAGER")
+
+
+def require_roles(*roles: str):
+    def checker(user: dict = Depends(get_current_user)) -> dict:
+        if user["role"] not in roles:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền thực hiện thao tác này")
+        return user
+    return checker
+
+
+require_staff = require_roles(*STAFF_ROLES)
+require_admin = require_roles("ADMIN")
