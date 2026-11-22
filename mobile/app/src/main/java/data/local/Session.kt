@@ -2,6 +2,7 @@ package com.example.smartheritage_mobile.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.smartheritage_mobile.config.LanguageCycle
 import com.example.smartheritage_mobile.model.AuthResponseDto
 import java.util.UUID
 
@@ -43,6 +44,25 @@ object Session {
         set(value) {
             prefs?.edit()?.putString("server", value)?.apply()
         }
+
+    /** Ngôn ngữ Admin đang bật ở W8, dạng "vi=Tiếng Việt|en=English|ko=한국어" (giữ khi offline). */
+    private val languagePairs: List<Pair<String, String>>
+        get() = prefs?.getString("languages", null)
+            ?.split('|')
+            ?.mapNotNull { it.split('=', limit = 2).takeIf { p -> p.size == 2 && p[0].isNotBlank() }?.let { p -> p[0] to p[1] } }
+            ?.takeIf { it.isNotEmpty() }
+            ?: listOf("vi" to "Tiếng Việt", "en" to "English")
+
+    val enabledLanguages: List<String> get() = languagePairs.map { it.first }
+
+    fun saveLanguages(pairs: List<Pair<String, String>>) {
+        prefs?.edit()?.putString("languages", pairs.joinToString("|") { "${it.first}=${it.second}" })?.apply()
+    }
+
+    fun nextLanguage(current: String): String = LanguageCycle.next(current, enabledLanguages)
+
+    fun languageName(code: String): String =
+        languagePairs.firstOrNull { it.first.equals(code, ignoreCase = true) }?.second ?: code.uppercase()
 
     fun saveLogin(res: AuthResponseDto) {
         prefs?.edit()

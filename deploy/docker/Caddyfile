@@ -1,0 +1,6 @@
+# Tự xin và gia hạn chứng chỉ HTTPS (Let's Encrypt) cho tên miền trong biến DOMAIN.
+# Yêu cầu: DNS của DOMAIN trỏ về máy chủ này và mở cổng 80, 443.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}

@@ -414,6 +414,10 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 * **Ngưỡng kích hoạt:** mỗi iBeacon dùng bán kính do Admin đặt ở màn Thiết bị iBeacon (W5), mặc định 2,0 m.
 * **Trạm phát iBeacon giả lập** (điện thoại thứ 2): xem `beacon-sim/README.md`.
 
+### Triển khai thật (production)
+
+Chạy một tiến trình (backend phục vụ luôn web admin), có HTTPS, Docker Compose, danh sách việc bắt buộc trước khi cho người khác dùng: xem **[`deploy/README.md`](deploy/README.md)**.
+
 ---
 
 ## 10. Lộ trình triển khai (30 ngày)

@@ -31,6 +31,8 @@ import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
+import com.example.smartheritage_mobile.config.LanguageCycle
 import com.example.smartheritage_mobile.data.repository.ArtifactRepository
 import com.example.smartheritage_mobile.model.MapPinDto
 
@@ -63,7 +65,7 @@ fun SiteMapScreen(
     val strings = remember(lang) { getAppStrings(lang) }
 
     val fallbackPins = remember(lang) {
-        val isEn = lang.equals("en", ignoreCase = true)
+        val isEn = LanguageCycle.isEnglishUi(lang)
         LocalArtifactCache.defaultSeeds.mapIndexed { idx, seed ->
             MapPinDto(
                 beacon_id = idx + 1,
@@ -161,7 +163,7 @@ fun SiteMapScreen(
                     .size(44.dp)
                     .clip(CircleShape)
                     .clickable {
-                        val nextLang = if (lang == "vi") "en" else "vi"
+                        val nextLang = Session.nextLanguage(lang)
                         lang = nextLang
                         cache.setPreferredLanguage(nextLang)
                     },

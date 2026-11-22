@@ -9,6 +9,26 @@ from sqlalchemy.orm import Session
 from app.database import get_db, DRIVER, DB_SERVER, DB_NAME
 from app.routers import auth_router, artifact_router, beacon_router, analytics_router, language_router
 
+IS_PRODUCTION = os.getenv("APP_ENV", "development").lower() == "production"
+
+
+def parse_origins(value, production: bool) -> list[str]:
+    """CORS_ORIGINS="https://a.vn,https://b.vn". Không đặt: dev mở (web :5173 gọi API :8000), production không mở
+    (web được chính backend phục vụ nên cùng gốc, không cần CORS)."""
+    if value:
+        return [o.strip() for o in value.split(",") if o.strip()]
+    return [] if production else ["*"]
+
+
+def mount_web(app, dist_dir: str) -> bool:
+    """Phục vụ bản build của admin-web (index.html + assets) ở "/" để chỉ cần chạy một tiến trình. Gọi SAU khi đã khai báo
+    mọi route API: route khai báo trước luôn được ưu tiên, đường dẫn /api sai vẫn trả 404 như bình thường."""
+    if not os.path.isfile(os.path.join(dist_dir, "index.html")):
+        return False
+    app.mount("/", StaticFiles(directory=dist_dir, html=True), name="web")
+    return True
+
+
 app = FastAPI(
     title="Smart Heritage API",
     description="RESTful API đồng bộ 100% với Figma Web Admin (W1-W8) và Mobile App (1-10)",
@@ -17,7 +37,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=parse_origins(os.getenv("CORS_ORIGINS"), IS_PRODUCTION),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +53,12 @@ app.include_router(artifact_router.router)
 app.include_router(beacon_router.router)
 app.include_router(analytics_router.router)
 app.include_router(language_router.router)
+
+
+@app.get("/healthz", tags=["0. System Health (M0)"])
+def healthz():
+    # Không đụng DB: cho Docker/load balancer biết tiến trình còn sống (dùng /api/health-db để kiểm cả SQL Server)
+    return {"status": "ok"}
 
 
 @app.get("/api/health-db", tags=["0. System Health (M0)"])
@@ -86,3 +112,10 @@ def resolve_beacon_artifact(
     db.execute(text("UPDATE dbo.Beacons SET last_seen_at = SYSDATETIME() WHERE beacon_id = :id"), {"id": row["beacon_id"]})
     db.commit()
     return dict(row)
+
+
+# Web admin build sẵn: đặt WEB_DIST, hoặc tự dùng admin-web/dist khi APP_ENV=production
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_WEB_DIST = os.getenv("WEB_DIST") or (os.path.join(os.path.dirname(_BACKEND_DIR), "admin-web", "dist") if IS_PRODUCTION else None)
+if _WEB_DIST:
+    mount_web(app, _WEB_DIST)

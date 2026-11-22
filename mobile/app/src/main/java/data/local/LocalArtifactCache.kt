@@ -1,5 +1,7 @@
 package com.example.smartheritage_mobile.data.local
 
+import com.example.smartheritage_mobile.config.LanguageCycle
+
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
@@ -32,7 +34,7 @@ data class CachedArtifact(
     val cachedAt: Long = System.currentTimeMillis()
 ) {
     fun toDetailResponse(lang: String, feedbacks: List<ArtifactFeedbackDto>): ArtifactDetailResponse {
-        val isEn = lang.equals("en", ignoreCase = true)
+        val isEn = LanguageCycle.isEnglishUi(lang)
         return ArtifactDetailResponse(
             artifact_id = artifactId,
             artifact_code = artifactCode,
@@ -58,7 +60,7 @@ data class CachedArtifact(
     }
 
     fun toVisitLogItem(lang: String, durationSec: Int = 90, visitedAt: String = "18/10/2026 · 09:30"): VisitLogItemDto {
-        val isEn = lang.equals("en", ignoreCase = true)
+        val isEn = LanguageCycle.isEnglishUi(lang)
         return VisitLogItemDto(
             log_id = artifactId,
             artifact_id = artifactId,

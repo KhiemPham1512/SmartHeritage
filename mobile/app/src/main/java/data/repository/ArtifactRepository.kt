@@ -72,6 +72,12 @@ class ArtifactRepository {
         return RetrofitClient.artifactApi.submitFeedback(request)
     }
 
+    /** Lấy ngôn ngữ Admin đang bật (W8) và lưu lại; lỗi mạng thì giữ danh sách cũ. */
+    suspend fun refreshLanguages() {
+        val enabled = RetrofitClient.artifactApi.getLanguages().filter { it.is_enabled }
+        if (enabled.isNotEmpty()) Session.saveLanguages(enabled.map { it.lang_code to it.name_native })
+    }
+
     suspend fun login(email: String, password: String): Response<AuthResponseDto> {
         return RetrofitClient.artifactApi.login(LoginRequestDto(email, password))
     }

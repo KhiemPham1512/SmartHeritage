@@ -11,7 +11,19 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.database import get_db
 
-SECRET_KEY = os.getenv("JWT_SECRET", "smart-heritage-secret-key-2026")
+DEV_SECRET = "smart-heritage-secret-key-2026"  # chỉ dùng khi phát triển; giá trị này công khai trong mã nguồn
+
+
+def resolve_secret(env) -> str:
+    """Khóa ký JWT. Production bắt buộc đặt JWT_SECRET riêng (>= 32 ký tự), nếu không dịch vụ từ chối khởi động:
+    dùng khóa mặc định thì ai đọc mã nguồn cũng tự tạo được token ADMIN."""
+    secret = env.get("JWT_SECRET") or DEV_SECRET
+    if env.get("APP_ENV", "development").lower() == "production" and (secret == DEV_SECRET or len(secret) < 32):
+        raise RuntimeError("APP_ENV=production: phải đặt JWT_SECRET ngẫu nhiên, dài ít nhất 32 ký tự")
+    return secret
+
+
+SECRET_KEY = resolve_secret(os.environ)
 TOKEN_EXPIRE_SECONDS = 60 * 60 * 24 * 7  # 7 ngày
 
 # Kích hoạt nút ổ khóa Authorize chuẩn của Swagger UI

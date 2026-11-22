@@ -9,6 +9,7 @@ import com.example.smartheritage_mobile.model.AuthResponseDto
 import com.example.smartheritage_mobile.model.FavoriteToggleRequestDto
 import com.example.smartheritage_mobile.model.FavoriteToggleResponseDto
 import com.example.smartheritage_mobile.model.FeedbackCreateRequestDto
+import com.example.smartheritage_mobile.model.LanguageDto
 import com.example.smartheritage_mobile.model.LoginRequestDto
 import com.example.smartheritage_mobile.model.MyVisitLogsResponse
 import com.example.smartheritage_mobile.model.ProfileUpdateDto
@@ -72,6 +73,9 @@ interface ArtifactApiService {
     suspend fun submitFeedback(
         @Body request: FeedbackCreateRequestDto
     ): Response<ArtifactFeedbackDto>
+
+    @GET("api/languages")
+    suspend fun getLanguages(): List<LanguageDto>
 
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequestDto): Response<AuthResponseDto>
