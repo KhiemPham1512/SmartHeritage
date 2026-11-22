@@ -77,9 +77,10 @@ Desktop.ini
 *.mdf
 *.ldf
 *.log
-# Claude Code (personal, do not commit)
-.claude/local/
-.claude/settings.local.json
+# Chi giu o may local, khong dua len repo (Claude Code + tai lieu rieng)
+.claude/
+CLAUDE.md
+docs/
 .codegraph/
 beacon-sim/.gradle/
 beacon-sim/build/
