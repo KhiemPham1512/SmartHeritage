@@ -63,7 +63,7 @@ def main():
         "hv_003.jpg": (600, 400, (195, 110, 80)),     # Tượng Apsara (Màu đá sa thạch Chăm Pa)
         "hv_004.jpg": (600, 400, (140, 105, 65)),     # Thạp đồng Đào Thịnh
         "hv_005.jpg": (600, 400, (215, 165, 45)),     # Ấn vàng Triều Nguyễn (Màu vàng hoàng gia)
-        "floorplan_tang1.png": (900, 600, (235, 240, 245)),  # Sơ đồ mặt bằng Tầng 1
+        # floorplan_tang1.png KHÔNG sinh ở đây: sơ đồ vẽ sẵn các phòng (nguồn floorplan_tang1.svg) đã được commit
     }
     for filename, (w, h, color) in image_files.items():
         path = os.path.join(IMAGES_DIR, filename)

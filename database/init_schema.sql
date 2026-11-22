@@ -196,6 +196,7 @@ CREATE TABLE dbo.Feedbacks (
         CONSTRAINT CK_Feedbacks_Rating CHECK (rating BETWEEN 1 AND 5),
     comment NVARCHAR(1000) NULL,
     is_visible BIT NOT NULL DEFAULT 1,
+    hide_reason NVARCHAR(200) NULL,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT FK_Feedbacks_Users FOREIGN KEY (user_id) REFERENCES dbo.Users(user_id) ON DELETE SET NULL,
     CONSTRAINT FK_Feedbacks_Artifacts FOREIGN KEY (artifact_id) REFERENCES dbo.Artifacts(artifact_id) ON DELETE CASCADE

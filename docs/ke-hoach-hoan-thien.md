@@ -61,10 +61,12 @@ Mỗi giai đoạn một nhánh `feature/*` từ `develop`, một PR, merge khi 
 
 ### GĐ3 — W3–W8 theo Figma (gốc: TV3/TV4/TV5; thực hiện: TV1 + Claude, ~1,5 ngày)
 - [x] W3 theo Figma (KPI icon bộ `the_thong_ke`, tab, nhãn ngôn ngữ, phân trang 8 dòng). W4 theo Figma: 2 cột, tab từng ngôn ngữ + Thêm ngôn ngữ (bản dịch `ArtifactTranslations`), audio riêng mỗi ngôn ngữ, bộ ảnh/video (`gallery_json`), gán iBeacon, Lưu bản nháp; mã mới gợi ý bằng `sp_GenerateNextArtifactCode`. URL giữ màn (`#W3`, `#W4/12`).
-- [ ] Thay icon bằng bộ icon trong `docs/local/logos/` (W5 thiết bị, W6 điểm iBeacon + lối vào, W7 đánh giá).
-- [ ] So từng màn với ảnh Figma, sửa lệch.
-- [ ] W4: tải ảnh/MP3 chạy thật; W6: kéo thả tọa độ lưu qua API; W7: ẩn/hiện/xóa; W8: tài khoản + ngôn ngữ.
-- [ ] Mọi màn xử lý 401/403 sau khi bật RBAC.
+- [x] W5 theo Figma: KPI icon, bảng chọn dòng để sửa, form sửa, phân trang, thông số nâng cao; sửa beacon gỡ được hiện vật; kiểm Major/Minor 0–65535, UUID, TxPower.
+- [x] W6 theo Figma: chọn khu di tích, sơ đồ vẽ sẵn các phòng (`floorplan_tang1.svg/png`), pin theo trạng thái, vòng bán kính (26 px/m), kéo thả + click + phím mũi tên, zoom, tải ảnh sơ đồ, "Lưu vị trí" nhiều pin.
+- [x] W7 theo Figma: lý do ẩn (cột `Feedbacks.hide_reason`, migration 03), lọc hiện vật/sao/trạng thái, sắp xếp, phân trang phía server, "Quy tắc kiểm duyệt"; bình luận ẩn không tính vào điểm trung bình.
+- [x] W8 theo Figma: bảng ngôn ngữ có công tắc (API `/api/languages`), bảng tài khoản (lọc vai trò, phân trang, khóa/mở khóa, đặt lại mật khẩu), khối phạm vi phân quyền; Admin không tự khóa/hạ quyền được; Quản lý nội dung chỉ xem ngôn ngữ.
+- [x] Mọi màn xử lý 401 (về W1) sau khi bật RBAC; W8 hiện thông báo thay vì lỗi với tài khoản không phải Admin.
+- [ ] Còn chờ TV1 kiểm tay các thao tác kéo thả/lưu: xem `docs/viec-nguoi-dung-can-kiem.md` mục B, E.
 
 ### GĐ4 — Mobile tích hợp thật (gốc: TV2; thực hiện: TV1 + Claude, ~1,5 ngày)
 - [ ] Đăng nhập/đăng ký/hồ sơ gọi API thật, lưu token; Guest dùng `device_id` riêng cho từng máy.

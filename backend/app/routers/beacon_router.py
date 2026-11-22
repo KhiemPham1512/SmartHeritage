@@ -119,9 +119,28 @@ def create_beacon(req: BeaconCreate, db: Session = Depends(get_db)):
 
 @router.put("/beacons/{beacon_id}", dependencies=[Depends(require_staff)])
 def update_beacon(beacon_id: int, req: BeaconUpdate, db: Session = Depends(get_db)):
-    exists = db.execute(text("SELECT beacon_id FROM dbo.Beacons WHERE beacon_id = :id"), {"id": beacon_id}).first()
-    if not exists:
+    cur = db.execute(
+        text("SELECT beacon_code, uuid, major, minor FROM dbo.Beacons WHERE beacon_id = :id"), {"id": beacon_id}
+    ).mappings().first()
+    if not cur:
         raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị iBeacon")
+
+    # Kiểm trùng theo giá trị sau khi cập nhật (mã BC-xxx hoặc bộ UUID/Major/Minor) → 400 thay vì lỗi 500
+    dup = db.execute(
+        text("""
+            SELECT 1 FROM dbo.Beacons
+            WHERE beacon_id <> :id AND (beacon_code = :code OR (uuid = :uuid AND major = :major AND minor = :minor))
+        """),
+        {
+            "id": beacon_id,
+            "code": req.beacon_code or cur["beacon_code"],
+            "uuid": req.uuid or cur["uuid"],
+            "major": req.major if req.major is not None else cur["major"],
+            "minor": req.minor if req.minor is not None else cur["minor"],
+        }
+    ).first()
+    if dup:
+        raise HTTPException(status_code=400, detail="Mã Beacon hoặc bộ số (UUID, Major, Minor) đã tồn tại")
 
     if req.artifact_id is not None:
         db.execute(
@@ -133,7 +152,7 @@ def update_beacon(beacon_id: int, req: BeaconUpdate, db: Session = Depends(get_d
         text("""
             UPDATE dbo.Beacons
             SET beacon_code = COALESCE(:beacon_code, beacon_code),
-                artifact_id = COALESCE(:artifact_id, artifact_id),
+                artifact_id = CASE WHEN :set_artifact = 1 THEN :artifact_id ELSE artifact_id END,
                 zone_name = COALESCE(:zone_name, zone_name),
                 uuid = COALESCE(:uuid, uuid),
                 major = COALESCE(:major, major),
@@ -146,11 +165,10 @@ def update_beacon(beacon_id: int, req: BeaconUpdate, db: Session = Depends(get_d
                 status = COALESCE(:status, status)
             WHERE beacon_id = :beacon_id
         """),
-        {**req.model_dump(), "beacon_id": beacon_id}
+        {**req.model_dump(), "set_artifact": 1 if "artifact_id" in req.model_fields_set else 0, "beacon_id": beacon_id}
     )
     db.commit()
     return {"message": f"Đã cập nhật thiết bị iBeacon #{beacon_id} thành công"}
-
 
 @router.put("/beacons/{beacon_id}/coordinates", dependencies=[Depends(require_staff)])
 def update_beacon_map_position(beacon_id: int, req: BeaconCoordinateUpdate, db: Session = Depends(get_db)):

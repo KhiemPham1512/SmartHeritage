@@ -329,7 +329,7 @@ Bất kỳ thành viên nào sau khi `git clone` dự án (hoặc `git pull orig
 2. Chọn **File** $\rightarrow$ **Open** $\rightarrow$ **File...**, mở file **`database/init_schema.sql`** trong thư mục dự án.
 3. Nhấn **`F5` (Execute)** để tạo CSDL `SmartHeritageDB` (bao gồm 8 bảng, 3 Indexes, 2 Views, 1 Inline Function, 7 Stored Procedures xử lý giao tác đồng thời và dữ liệu mẫu).
 4. **Máy đã tạo DB trước ngày 22/11/2026** không cần chạy lại script (sẽ mất dữ liệu). Sau khi cài backend ở Bước 2, trong thư mục `backend` chạy:
-   * `.\.venv\Scripts\python scripts\apply_migrations.py` — thêm bảng ngôn ngữ/bản dịch và **các Stored Procedure, View, Index** nếu DB đang thiếu (tương đương mở `database/migrations/*.sql` trong SSMS và F5 theo thứ tự).
+   * `.\.venv\Scripts\python scripts\apply_migrations.py` — thêm bảng ngôn ngữ/bản dịch, cột lý do ẩn bình luận và **các Stored Procedure, View, Index** nếu DB đang thiếu (tương đương mở `database/migrations/*.sql` trong SSMS và F5 theo thứ tự).
    * `.\.venv\Scripts\python scripts\rehash_plaintext_passwords.py` — băm lại mật khẩu mẫu dạng thô (mật khẩu đăng nhập không đổi).
 
 ### Bước 2: Thiết lập Môi trường ảo Python 3.12 & Khởi chạy Backend FastAPI (Terminal 1)

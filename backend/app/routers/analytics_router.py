@@ -117,6 +117,8 @@ def get_my_favorites_and_history(
 @router.post("/feedbacks")
 def submit_feedback(req: FeedbackCreate, db: Session = Depends(get_db)):
     # Phục vụ hộp thoại "Chia sẻ cảm nhận của bạn" ở Mobile Màn 8
+    if not db.execute(text("SELECT 1 FROM dbo.Artifacts WHERE artifact_id = :id"), {"id": req.artifact_id}).first():
+        raise HTTPException(status_code=404, detail="Không tìm thấy hiện vật")
     row = db.execute(
         text("""
             INSERT INTO dbo.Feedbacks (user_id, visitor_name, artifact_id, rating, comment, is_visible)
@@ -132,55 +134,68 @@ def submit_feedback(req: FeedbackCreate, db: Session = Depends(get_db)):
 # =========================================================================
 # M7: KIỂM DUYỆT ĐÁNH GIÁ (WEB W7) & THỐNG KÊ DASHBOARD + XUẤT BÁO CÁO (WEB W2)
 # =========================================================================
+FEEDBACK_SORTS = {
+    "newest": "f.created_at DESC",
+    "oldest": "f.created_at ASC",
+    "rating_desc": "f.rating DESC, f.created_at DESC",
+    "rating_asc": "f.rating ASC, f.created_at DESC",
+}
+
+
 @router.get("/feedbacks", dependencies=[Depends(require_staff)])
 def list_feedbacks_for_moderation(
-    rating: int = Query(None, description="Lọc theo số sao: 1..5"),
+    rating: int = Query(None, ge=1, le=5, description="Lọc theo số sao: 1..5"),
     is_visible: bool = Query(None, description="Lọc trạng thái: true (Hiển thị), false (Đã ẩn)"),
     search: str = Query(None, description="Tìm kiếm theo tên khách hoặc nội dung bình luận"),
+    artifact_id: int = Query(None, description="Lọc theo hiện vật"),
+    sort: str = Query("newest", pattern="^(newest|oldest|rating_desc|rating_asc)$"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    # 4 thẻ KPI trên đầu màn hình W7 (Kiểm duyệt đánh giá & phản hồi)
+    # 4 thẻ KPI trên đầu màn hình W7 (Kiểm duyệt đánh giá & phản hồi) — tính trên toàn bộ, không theo bộ lọc
     stats = db.execute(text("""
         SELECT
             COUNT(*) AS total_feedbacks,
-            ROUND(AVG(CAST(rating AS FLOAT)), 1) AS avg_rating,
-            SUM(CASE WHEN is_visible = 1 THEN 1 ELSE 0 END) AS visible_count,
-            SUM(CASE WHEN is_visible = 0 THEN 1 ELSE 0 END) AS hidden_count
+            ROUND(COALESCE(AVG(CASE WHEN is_visible = 1 THEN CAST(rating AS FLOAT) END), 0), 1) AS avg_rating,
+            COALESCE(SUM(CASE WHEN is_visible = 1 THEN 1 ELSE 0 END), 0) AS visible_count,
+            COALESCE(SUM(CASE WHEN is_visible = 0 THEN 1 ELSE 0 END), 0) AS hidden_count
         FROM dbo.Feedbacks
     """)).mappings().first()
 
-    sql = """
-        SELECT 
-            f.feedback_id,
-            f.user_id,
-            f.visitor_name,
-            f.artifact_id,
-            a.artifact_code,
-            a.name_vi AS artifact_name,
-            f.rating,
-            f.comment,
-            f.is_visible,
-            f.created_at
-        FROM dbo.Feedbacks f
-        INNER JOIN dbo.Artifacts a ON f.artifact_id = a.artifact_id
-        WHERE 1=1
-    """
+    where = "WHERE 1=1"
     params = {}
     if rating is not None:
-        sql += " AND f.rating = :rating"
+        where += " AND f.rating = :rating"
         params["rating"] = rating
     if is_visible is not None:
-        sql += " AND f.is_visible = :vis"
+        where += " AND f.is_visible = :vis"
         params["vis"] = 1 if is_visible else 0
+    if artifact_id is not None:
+        where += " AND f.artifact_id = :aid"
+        params["aid"] = artifact_id
     if search:
-        sql += " AND (f.visitor_name LIKE :s OR f.comment LIKE :s OR a.name_vi LIKE :s)"
+        where += " AND (f.visitor_name LIKE :s OR f.comment LIKE :s OR a.name_vi LIKE :s)"
         params["s"] = f"%{search}%"
 
-    sql += " ORDER BY f.created_at DESC"
-    items = db.execute(text(sql), params).mappings().all()
+    base = f"FROM dbo.Feedbacks f INNER JOIN dbo.Artifacts a ON f.artifact_id = a.artifact_id {where}"
+    total = db.execute(text(f"SELECT COUNT(*) {base}"), params).scalar()
+    items = db.execute(
+        text(f"""
+            SELECT f.feedback_id, f.user_id, f.visitor_name, f.artifact_id, a.artifact_code,
+                   a.name_vi AS artifact_name, f.rating, f.comment, f.is_visible, f.hide_reason, f.created_at
+            {base}
+            ORDER BY {FEEDBACK_SORTS[sort]}
+            OFFSET :off ROWS FETCH NEXT :n ROWS ONLY
+        """),
+        {**params, "off": (page - 1) * page_size, "n": page_size}
+    ).mappings().all()
 
     return {
         "stats": dict(stats),
+        "total": total,
+        "page": page,
+        "page_size": page_size,
         "items": [dict(i) for i in items]
     }
 
@@ -191,14 +206,17 @@ def moderate_feedback_visibility(
     req: FeedbackVisibilityUpdate,
     db: Session = Depends(get_db)
 ):
-    db.execute(
-        text("UPDATE dbo.Feedbacks SET is_visible = :vis WHERE feedback_id = :fid"),
-        {"vis": 1 if req.is_visible else 0, "fid": feedback_id}
-    )
+    # Ẩn kèm lý do (hiện ở W7); duyệt lại thì xóa lý do
+    updated = db.execute(
+        text("UPDATE dbo.Feedbacks SET is_visible = :vis, hide_reason = :reason WHERE feedback_id = :fid"),
+        {"vis": 1 if req.is_visible else 0, "reason": None if req.is_visible else (req.hide_reason or None), "fid": feedback_id}
+    ).rowcount
+    if not updated:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đánh giá")
     db.commit()
     status_str = "Hiển thị" if req.is_visible else "Đã ẩn"
     return {"message": f"Đã chuyển trạng thái bình luận #{feedback_id} sang: {status_str}"}
-
 
 @router.delete("/feedbacks/{feedback_id}", dependencies=[Depends(require_staff)])
 def delete_feedback(feedback_id: int, db: Session = Depends(get_db)):

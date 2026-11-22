@@ -23,6 +23,22 @@ export function MaskIcon({ src, color = BRAND_RED, size = 19 }: { src: string; c
   return <span aria-hidden style={style} />;
 }
 
+// Thông báo lỗi / thành công đóng được, dùng chung các màn
+export function Banner({ tone, text, onClose }: { tone: "error" | "ok"; text: string; onClose: () => void }) {
+  const c = tone === "error"
+    ? { color: "#b91c1c", bg: "#fef2f2", border: "#fca5a5" }
+    : { color: "#166534", bg: "#f0fdf4", border: "#86efac" };
+  return (
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, backgroundColor: c.bg, color: c.color, fontSize: 13, fontWeight: 600 }}
+    >
+      <span>{text}</span>
+      <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: c.color, cursor: "pointer", fontWeight: 700 }}>Đóng</button>
+    </div>
+  );
+}
+
 // Phân trang kiểu Figma (Trước · 1 2 3 … · Sau): hiện trang đầu, cuối và lân cận trang hiện tại
 export function Pager({ page, pageCount, onChange }: { page: number; pageCount: number; onChange: (p: number) => void }) {
   const pages = [...new Set([1, page - 1, page, page + 1, pageCount])]
