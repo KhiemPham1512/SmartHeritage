@@ -35,9 +35,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
 import com.example.smartheritage_mobile.config.BeaconConfig
+import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
-import com.example.smartheritage_mobile.config.toFullMediaUrl
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 import com.example.smartheritage_mobile.data.repository.ArtifactRepository
 import com.example.smartheritage_mobile.model.Artifact
@@ -68,26 +68,35 @@ fun HomeScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var selectedLanguage by remember { mutableStateOf("VI / EN") }
-    // Ngôn ngữ gửi lên API
-    val apiLanguage = if (selectedLanguage == "VI / EN") "vi" else "en"
+    // Khởi tạo Repository & Bộ nhớ đệm Offline (CachedArtifact)
+    val repository = remember { ArtifactRepository() }
+    val localCache = remember { LocalArtifactCache.getInstance(context) }
+
+    var apiLanguage by remember { mutableStateOf(localCache.getPreferredLanguage()) }
+    val selectedLanguage = if (apiLanguage == "en") "EN / VI" else "VI / EN"
+    val strings = remember(apiLanguage) { getAppStrings(apiLanguage) }
 
     // Danh sách hiện vật lấy từ API
     var artifacts by remember { mutableStateOf<List<Artifact>>(emptyList()) }
 
-    // Danh sách 5 hiện vật mẫu mặc định (BC-001 đến BC-005 trong DB Seed)
-    val defaultSeedArtifacts = remember {
-        listOf(
-            Artifact(1, "BC-001", "Khu Đông Sơn", "Trống đồng Ngọc Lũ", "Dấu ấn văn hóa Đông Sơn rực rỡ cách đây hơn 2.500 năm.", "/static/images/hv_001.jpg", "PUBLISHED"),
-            Artifact(2, "BC-002", "Khu Gốm sứ", "Bình gốm Chu Đậu", "Tuyệt tác gốm hoa lam Việt Nam thế kỷ XV với nét vẽ thủ công tinh xảo.", "/static/images/hv_002.jpg", "PUBLISHED"),
-            Artifact(3, "BC-003", "Khu Điêu khắc", "Tượng Phật Phật Tích", "Tác phẩm điêu khắc đá thời Lý thể hiện đỉnh cao nghệ thuật Phật giáo.", "/static/images/hv_003.jpg", "PUBLISHED"),
-            Artifact(4, "BC-004", "Khu Triều Nguyễn", "Ấn vàng Hoàng đế chi bảo", "Bảo vật quốc gia thời Nguyễn bằng vàng ròng chạm khắc hình rồng uốn lượn.", "/static/images/hv_004.jpg", "PUBLISHED"),
-            Artifact(5, "BC-005", "Khu Bảo vật", "Cửu đỉnh Huế", "Bộ 9 đỉnh đồng đồ sộ đúc năm 1835 biểu tượng cho quyền lực và sự trường tồn.", "/static/images/hv_005.jpg", "PUBLISHED")
-        )
+    // Danh sách 5 hiện vật mẫu song ngữ mặc định (BC-001 đến BC-005)
+    val defaultSeedArtifacts = remember(apiLanguage) {
+        val isEn = apiLanguage == "en"
+        LocalArtifactCache.defaultSeeds.take(5).map { seed ->
+            Artifact(
+                artifactId = seed.artifactId,
+                artifactCode = seed.artifactCode,
+                zoneName = seed.zoneName,
+                name = if (isEn) seed.nameEn else seed.nameVi,
+                summary = if (isEn) seed.summaryEn else seed.summaryVi,
+                imageUrl = seed.imageUrl,
+                status = "PUBLISHED"
+            )
+        }
     }
 
     // Ưu tiên hiển thị từ API, nếu ít hơn 5 item thì bù đủ 5 hiện vật nổi bật
-    val displayArtifacts = remember(artifacts) {
+    val displayArtifacts = remember(artifacts, defaultSeedArtifacts) {
         if (artifacts.size >= 5) {
             artifacts.take(5)
         } else if (artifacts.isNotEmpty()) {
@@ -98,10 +107,6 @@ fun HomeScreen(
     }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    // Khởi tạo Repository & Bộ nhớ đệm Offline (CachedArtifact)
-    val repository = remember { ArtifactRepository() }
-    val localCache = remember { LocalArtifactCache.getInstance(context) }
 
     // --- 1. QUẢN LÝ QUYỀN RUNTIME PERMISSIONS ---
     val requiredPermissions = remember {
@@ -292,13 +297,13 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "BẠN ĐANG THAM QUAN",
-                        fontSize = 8.sp,
+                        text = strings.youAreVisiting,
+                        fontSize = 9.sp,
                         color = HomeGray
                     )
 
                     Text(
-                        text = "Tên khu di tích",
+                        text = strings.siteName,
                         fontSize = 17.sp,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
@@ -312,12 +317,13 @@ fun HomeScreen(
                         .background(Color.White, RoundedCornerShape(8.dp))
                         .border(1.dp, HomeBorder, RoundedCornerShape(8.dp))
                         .clickable {
-                            selectedLanguage = if (selectedLanguage == "VI / EN") "EN / VI" else "VI / EN"
-                            localCache.setPreferredLanguage(if (selectedLanguage == "VI / EN") "vi" else "en")
+                            val nextLang = if (apiLanguage == "vi") "en" else "vi"
+                            apiLanguage = nextLang
+                            localCache.setPreferredLanguage(nextLang)
                         }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     color = HomeOrange,
-                    fontSize = 9.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -379,9 +385,9 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "ĐANG QUÉT IBEACON",
+                        text = strings.scanningIbeacon,
                         color = HomeOrange,
-                        fontSize = 8.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -412,15 +418,15 @@ fun HomeScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(24.dp)
+                                    .size(28.dp)
                                     .background(HomeOrange, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ibeacon_cam),
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_bluetooth),
                                     contentDescription = "iBeacon",
-                                    modifier = Modifier.size(28.dp),
-                                    contentScale = ContentScale.Fit
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
@@ -429,16 +435,16 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "Đang dò tìm hiện vật ở gần...",
+                        text = strings.searchingNearby,
                         color = HomeText,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
 
                     Text(
-                        text = "Di chuyển trong khu trưng bày để khám phá",
+                        text = strings.moveToExplore,
                         color = HomeGray,
-                        fontSize = 8.sp
+                        fontSize = 9.sp
                     )
                 }
 
@@ -452,18 +458,18 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Hiện vật nổi bật (${displayArtifacts.size})",
+                        text = "${strings.featuredArtifacts} (${displayArtifacts.size})",
                         modifier = Modifier.weight(1f),
                         color = HomeText,
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold
                     )
 
                     Text(
-                        text = "Xem tất cả",
+                        text = strings.seeAll,
                         color = HomeOrange,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         modifier = Modifier.clickable {
                             displayArtifacts.firstOrNull()?.let { onDetail(it.artifactId) }
                         }
@@ -495,22 +501,15 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // THANH ĐIỀU HƯỚNG DƯỚI CỐ ĐỊNH
-            HorizontalDivider(color = HomeBorder)
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .background(Color.White),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HomeNavItem("⌂", "Trang chủ", true) {}
-                HomeNavItem("▣", "Bản đồ", false, onMap)
-                HomeNavItem("♡", "Đã lưu", false, onFavorites)
-                HomeNavItem("♙", "Cá nhân", false, onProfile)
-            }
+            // THANH ĐIỀU HƯỚNG DƯỚI CỐ ĐỊNH (Có navigationBarsPadding tránh bị thanh Home che)
+            SmartHeritageBottomBar(
+                currentTab = BottomNavTab.HOME,
+                strings = strings,
+                onHome = {},
+                onMap = onMap,
+                onFavorites = onFavorites,
+                onProfile = onProfile
+            )
         }
 
         // --- 5. MODAL BOTTOM SHEET M4: POPUP PHÁT HIỆN HIỆN VẬT GẦN ---
@@ -523,6 +522,9 @@ fun HomeScreen(
             ) {
                 DetectedArtifactBottomSheetContent(
                     artifact = detectedArtifact!!,
+                    badgeText = strings.artifactDetectedBadge,
+                    laterText = strings.laterBtn,
+                    detailText = strings.viewDetailBtn,
                     onDismiss = { showDetectedBottomSheet = false },
                     onDetail = {
                         showDetectedBottomSheet = false
@@ -658,12 +660,16 @@ private fun SinglePhoneBeaconTestBar(
 @Composable
 private fun DetectedArtifactBottomSheetContent(
     artifact: ResolvedBeaconResponse,
+    badgeText: String,
+    laterText: String,
+    detailText: String,
     onDismiss: () -> Unit,
     onDetail: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.Start
     ) {
@@ -683,7 +689,7 @@ private fun DetectedArtifactBottomSheetContent(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "PHÁT HIỆN HIỆN VẬT",
+                    text = badgeText,
                     color = HomeOrange,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
@@ -769,7 +775,7 @@ private fun DetectedArtifactBottomSheetContent(
                 )
             ) {
                 Text(
-                    text = "Để sau",
+                    text = laterText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -787,7 +793,7 @@ private fun DetectedArtifactBottomSheetContent(
                 )
             ) {
                 Text(
-                    text = "Xem chi tiết",
+                    text = detailText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -863,39 +869,13 @@ private fun ArtifactCard(
             )
         }
 
-        Text(
-            text = "›",
-            color = HomeGray,
-            fontSize = 21.sp,
-            modifier = Modifier.padding(horizontal = 5.dp)
-        )
-    }
-}
-
-@Composable
-private fun HomeNavItem(
-    icon: String,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .clickable { onClick() }
-            .padding(horizontal = 9.dp, vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = icon,
-            fontSize = 17.sp,
-            color = if (selected) HomeOrange else HomeGray
-        )
-
-        Text(
-            text = label,
-            fontSize = 8.sp,
-            color = if (selected) HomeOrange else HomeGray,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        Icon(
+            painter = painterResource(id = R.drawable.ic_chevron_right),
+            contentDescription = null,
+            tint = HomeGray,
+            modifier = Modifier
+                .padding(horizontal = 6.dp)
+                .size(18.dp)
         )
     }
 }

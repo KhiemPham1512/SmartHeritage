@@ -81,7 +81,7 @@ export default function W6_FloorMap() {
     }
   }, []);
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => { queueMicrotask(() => void loadData()); }, [loadData]); // Tải sau microtask: tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect)
 
   const choosePin = (pin: BeaconPin) => {
     setSelectedPin(pin);

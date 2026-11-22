@@ -57,6 +57,9 @@ class MainActivity : ComponentActivity() {
                             },
                             onGuest = {
                                 navController.navigate("home")
+                            },
+                            onBeaconStation = {
+                                navController.navigate("beacon_simulator")
                             }
                         )
                     }
@@ -87,14 +90,14 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("map")
                             },
                             onFavorites = {
-                                // Kết nối màn hình 9 (M6)
+                                navController.navigate("favorites")
                             },
                             onProfile = {
                                 navController.navigate("profile")
                             }
                         )
                     }
-                    //Chi tiết hiện vật (M5 - Màn hình 6)
+                    //Chi tiết hiện vật (M5 - Màn hình 6 + Hộp thoại M6 Màn hình 8)
                     composable(
                         route = "detail/{artifactId}",
                         arguments = listOf(navArgument("artifactId") { type = NavType.IntType })
@@ -123,7 +126,26 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onFavorites = {
-                                // Kết nối màn hình 9 (M6)
+                                navController.navigate("favorites")
+                            },
+                            onProfile = {
+                                navController.navigate("profile")
+                            },
+                            onArtifactDetail = { artifactId ->
+                                navController.navigate("detail/$artifactId")
+                            }
+                        )
+                    }
+                    //Đã lưu & Lịch sử tham quan (M6 - Màn hình 9)
+                    composable("favorites") {
+                        SavedAndHistoryScreen(
+                            onHome = {
+                                navController.navigate("home") {
+                                    popUpTo("home") { inclusive = true }
+                                }
+                            },
+                            onMap = {
+                                navController.navigate("map")
                             },
                             onProfile = {
                                 navController.navigate("profile")
@@ -154,7 +176,7 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("map")
                             },
                             onFavorites = {
-                                // Kết nối màn hình đã lưu sau (M6)
+                                navController.navigate("favorites")
                             },
                             onSimulator = {
                                 navController.navigate("beacon_simulator")

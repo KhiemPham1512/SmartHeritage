@@ -1,18 +1,20 @@
 package com.example.smartheritage_mobile
 
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +24,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartheritage_mobile.config.getAppStrings
+import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 
 private val RegisterBackground = Color(0xFFFAF8F6)
 private val RegisterOrange = Color(0xFFB95008)
@@ -34,6 +38,11 @@ fun CreateAccountScreen(
     onRegisterSuccess: () -> Unit,
     onLogin: () -> Unit
 ) {
+    val context = LocalContext.current
+    val cache = remember { LocalArtifactCache.getInstance(context) }
+    val lang = remember { cache.getPreferredLanguage() }
+    val strings = remember(lang) { getAppStrings(lang) }
+
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -47,9 +56,12 @@ fun CreateAccountScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(RegisterBackground)
-            .padding(horizontal = 14.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
     ) {
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(34.dp))
 
         // Logo Smart Heritage chuẩn Figma
         Row(
@@ -75,11 +87,11 @@ fun CreateAccountScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Tiêu đề
         Text(
-            text = "Tạo tài khoản",
+            text = strings.createAccountTitle,
             color = RegisterText,
             fontSize = 22.sp,
             fontFamily = FontFamily.Serif,
@@ -89,12 +101,12 @@ fun CreateAccountScreen(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Lưu lại hành trình khám phá của bạn",
+            text = strings.createAccountSub,
             color = RegisterGray,
-            fontSize = 10.sp
+            fontSize = 11.sp
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         // Họ và tên
         OutlinedTextField(
@@ -106,15 +118,23 @@ fun CreateAccountScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_user),
+                    contentDescription = null,
+                    tint = RegisterGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             placeholder = {
-                Text("♙   Họ và tên", fontSize = 11.sp)
+                Text(strings.fullNameHint, fontSize = 12.sp)
             },
             singleLine = true,
             shape = RoundedCornerShape(10.dp),
             colors = registerFieldColors()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Email
         OutlinedTextField(
@@ -126,8 +146,16 @@ fun CreateAccountScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_mail),
+                    contentDescription = null,
+                    tint = RegisterGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             placeholder = {
-                Text("✉   Địa chỉ email", fontSize = 11.sp)
+                Text(strings.emailHint, fontSize = 12.sp)
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -137,7 +165,7 @@ fun CreateAccountScreen(
             colors = registerFieldColors()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Mật khẩu
         OutlinedTextField(
@@ -149,8 +177,16 @@ fun CreateAccountScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_lock),
+                    contentDescription = null,
+                    tint = RegisterGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             placeholder = {
-                Text("♙   Mật khẩu", fontSize = 11.sp)
+                Text(strings.passwordHint, fontSize = 12.sp)
             },
             singleLine = true,
             visualTransformation = if (passwordVisible) {
@@ -159,16 +195,16 @@ fun CreateAccountScreen(
                 PasswordVisualTransformation()
             },
             trailingIcon = {
-                Text(
-                    text = if (passwordVisible) "Ẩn" else "Hiện",
-                    color = RegisterGray,
-                    fontSize = 10.sp,
-                    modifier = Modifier
-                        .clickable {
-                            passwordVisible = !passwordVisible
-                        }
-                        .padding(8.dp)
-                )
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (passwordVisible) R.drawable.ic_eye else R.drawable.ic_eye_off
+                        ),
+                        contentDescription = null,
+                        tint = RegisterGray,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password
@@ -177,7 +213,7 @@ fun CreateAccountScreen(
             colors = registerFieldColors()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Nhập lại mật khẩu
         OutlinedTextField(
@@ -189,8 +225,16 @@ fun CreateAccountScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_lock),
+                    contentDescription = null,
+                    tint = RegisterGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             placeholder = {
-                Text("♙   Nhập lại mật khẩu", fontSize = 11.sp)
+                Text(strings.confirmPasswordHint, fontSize = 12.sp)
             },
             singleLine = true,
             visualTransformation = if (confirmVisible) {
@@ -199,16 +243,16 @@ fun CreateAccountScreen(
                 PasswordVisualTransformation()
             },
             trailingIcon = {
-                Text(
-                    text = if (confirmVisible) "Ẩn" else "Hiện",
-                    color = RegisterGray,
-                    fontSize = 10.sp,
-                    modifier = Modifier
-                        .clickable {
-                            confirmVisible = !confirmVisible
-                        }
-                        .padding(8.dp)
-                )
+                IconButton(onClick = { confirmVisible = !confirmVisible }) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (confirmVisible) R.drawable.ic_eye else R.drawable.ic_eye_off
+                        ),
+                        contentDescription = null,
+                        tint = RegisterGray,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password
@@ -222,7 +266,7 @@ fun CreateAccountScreen(
             Text(
                 text = errorMessage,
                 color = Color.Red,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
@@ -237,20 +281,20 @@ fun CreateAccountScreen(
                             email.isBlank() ||
                             password.isBlank() ||
                             confirmPassword.isBlank() -> {
-                        errorMessage = "Vui lòng nhập đầy đủ thông tin."
+                        errorMessage = if (strings.isEn) "Please fill in all fields." else "Vui lòng nhập đầy đủ thông tin."
                     }
 
                     !android.util.Patterns.EMAIL_ADDRESS
                         .matcher(email).matches() -> {
-                        errorMessage = "Địa chỉ email không hợp lệ."
+                        errorMessage = if (strings.isEn) "Invalid email address." else "Địa chỉ email không hợp lệ."
                     }
 
                     password.length < 6 -> {
-                        errorMessage = "Mật khẩu cần ít nhất 6 ký tự."
+                        errorMessage = if (strings.isEn) "Password must be at least 6 characters." else "Mật khẩu cần ít nhất 6 ký tự."
                     }
 
                     password != confirmPassword -> {
-                        errorMessage = "Mật khẩu nhập lại không khớp."
+                        errorMessage = if (strings.isEn) "Passwords do not match." else "Mật khẩu nhập lại không khớp."
                     }
 
                     else -> {
@@ -260,15 +304,15 @@ fun CreateAccountScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp),
+                .height(46.dp),
             shape = RoundedCornerShape(10.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = RegisterOrange
             )
         ) {
             Text(
-                text = "Đăng ký",
-                fontSize = 12.sp,
+                text = strings.registerNow,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -277,14 +321,14 @@ fun CreateAccountScreen(
 
         // Điều khoản
         Text(
-            text = "Bằng việc đăng ký, bạn đồng ý với Điều khoản",
+            text = strings.termsNotice,
             modifier = Modifier.fillMaxWidth(),
             color = RegisterGray,
-            fontSize = 9.sp,
+            fontSize = 10.sp,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Quay lại đăng nhập
         Row(
@@ -293,15 +337,15 @@ fun CreateAccountScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Đã có tài khoản? ",
+                text = strings.alreadyHaveAccount,
                 color = RegisterText,
-                fontSize = 11.sp
+                fontSize = 12.sp
             )
 
             Text(
-                text = "Đăng nhập",
+                text = strings.loginBtn,
                 color = RegisterOrange,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable {
                     onLogin()
@@ -311,7 +355,6 @@ fun CreateAccountScreen(
     }
 }
 
-// Màu sắc chung cho các ô nhập
 @Composable
 private fun registerFieldColors() =
     OutlinedTextFieldDefaults.colors(

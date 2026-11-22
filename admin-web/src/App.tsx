@@ -37,6 +37,11 @@ export default function App() {
     return saved ? (JSON.parse(saved) as UserInfo) : null;
   });
   const [activeScreen, setActiveScreen] = useState<string>("W2");
+  const [editingArtifactId, setEditingArtifactId] = useState<string | null>(null);
+  const openArtifactForm = (id: number | null) => {
+    setEditingArtifactId(id === null ? null : String(id));
+    setActiveScreen("W4");
+  };
 
   const handleLoginSuccess = (newToken: string, userInfo: UserInfo) => {
     setToken(newToken);
@@ -193,8 +198,17 @@ export default function App() {
 
         <main style={mainScrollAreaStyle}>
           {activeScreen === "W2" && <W2_Dashboard />}
-          {activeScreen === "W3" && <W3_Artifacts onNavigateW4={() => setActiveScreen("W4")} />}
-          {activeScreen === "W4" && <W4_ArtifactForm />}
+          {activeScreen === "W3" && (
+            <W3_Artifacts onAdd={() => openArtifactForm(null)} onEdit={(id) => openArtifactForm(id)} />
+          )}
+          {activeScreen === "W4" && (
+            <W4_ArtifactForm
+              key={editingArtifactId ?? "new"}
+              artifactId={editingArtifactId}
+              onCancel={() => setActiveScreen("W3")}
+              onSaved={() => setActiveScreen("W3")}
+            />
+          )}
           {activeScreen === "W5" && <W5_Beacons />}
           {activeScreen === "W6" && <W6_FloorMap />}
           {activeScreen === "W7" && <W7_Feedbacks />}

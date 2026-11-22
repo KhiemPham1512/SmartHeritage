@@ -4,14 +4,17 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -21,6 +24,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartheritage_mobile.config.getAppStrings
+import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 
 private val LoginBackground = Color(0xFFFAF8F6)
 private val LoginOrange = Color(0xFFB95008)
@@ -32,8 +37,14 @@ private val LoginBorder = Color(0xFFE8E5E1)
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onRegister: () -> Unit,
-    onGuest: () -> Unit
+    onGuest: () -> Unit,
+    onBeaconStation: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val cache = remember { LocalArtifactCache.getInstance(context) }
+    val lang = remember { cache.getPreferredLanguage() }
+    val strings = remember(lang) { getAppStrings(lang) }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -43,10 +54,13 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(LoginBackground)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(55.dp))
+        Spacer(modifier = Modifier.height(38.dp))
 
         // Logo chuẩn Figma
         Row(
@@ -68,10 +82,10 @@ fun LoginScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(38.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Chào mừng trở lại",
+            text = strings.welcomeBack,
             modifier = Modifier.fillMaxWidth(),
             fontSize = 22.sp,
             fontFamily = FontFamily.Serif,
@@ -82,13 +96,13 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(5.dp))
 
         Text(
-            text = "Đăng nhập để tiếp tục hành trình khám phá",
+            text = strings.loginSubtitle,
             modifier = Modifier.fillMaxWidth(),
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             color = LoginGray
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         // Email
         OutlinedTextField(
@@ -100,8 +114,16 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_mail),
+                    contentDescription = null,
+                    tint = LoginGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             placeholder = {
-                Text("✉   Địa chỉ email", fontSize = 12.sp)
+                Text(strings.emailHint, fontSize = 12.sp)
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -128,8 +150,16 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
+            leadingIcon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_lock),
+                    contentDescription = null,
+                    tint = LoginGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             placeholder = {
-                Text("♙   Mật khẩu", fontSize = 12.sp)
+                Text(strings.passwordHint, fontSize = 12.sp)
             },
             singleLine = true,
             visualTransformation = if (passwordVisible)
@@ -140,16 +170,16 @@ fun LoginScreen(
                 keyboardType = KeyboardType.Password
             ),
             trailingIcon = {
-                Text(
-                    text = if (passwordVisible) "Ẩn" else "Hiện",
-                    color = LoginGray,
-                    fontSize = 10.sp,
-                    modifier = Modifier
-                        .clickable {
-                            passwordVisible = !passwordVisible
-                        }
-                        .padding(8.dp)
-                )
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (passwordVisible) R.drawable.ic_eye else R.drawable.ic_eye_off
+                        ),
+                        contentDescription = null,
+                        tint = LoginGray,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             },
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -162,13 +192,13 @@ fun LoginScreen(
 
         // Forgot password
         Text(
-            text = "Quên mật khẩu?",
+            text = strings.forgotPassword,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),
             textAlign = TextAlign.End,
             color = LoginOrange,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold
         )
 
@@ -189,10 +219,10 @@ fun LoginScreen(
         Button(
             onClick = {
                 if (email.isBlank() || password.isBlank()) {
-                    errorMessage = "Vui lòng nhập email và mật khẩu."
+                    errorMessage = if (strings.isEn) "Please enter email and password." else "Vui lòng nhập email và mật khẩu."
                 } else if (!android.util.Patterns.EMAIL_ADDRESS
                         .matcher(email).matches()) {
-                    errorMessage = "Địa chỉ email không hợp lệ."
+                    errorMessage = if (strings.isEn) "Invalid email address." else "Địa chỉ email không hợp lệ."
                 } else {
                     onLoginSuccess()
                 }
@@ -206,8 +236,8 @@ fun LoginScreen(
             )
         ) {
             Text(
-                "Đăng nhập",
-                fontSize = 12.sp,
+                strings.loginBtn,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -217,13 +247,13 @@ fun LoginScreen(
         // Register
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Chưa có tài khoản? ",
-                fontSize = 11.sp,
+                strings.noAccount,
+                fontSize = 12.sp,
                 color = LoginText
             )
             Text(
-                "Đăng ký",
-                fontSize = 11.sp,
+                strings.registerNow,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = LoginOrange,
                 modifier = Modifier.clickable {
@@ -232,7 +262,7 @@ fun LoginScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -243,8 +273,8 @@ fun LoginScreen(
                 color = LoginBorder
             )
             Text(
-                "  HOẶC  ",
-                fontSize = 9.sp,
+                strings.orDivider,
+                fontSize = 10.sp,
                 color = LoginGray
             )
             HorizontalDivider(
@@ -259,7 +289,7 @@ fun LoginScreen(
             onClick = onGuest,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp),
+                .height(46.dp),
             shape = RoundedCornerShape(10.dp),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = Color.White,
@@ -267,18 +297,49 @@ fun LoginScreen(
             )
         ) {
             Text(
-                "Tiếp tục với tư cách Khách (Guest)",
-                fontSize = 11.sp,
+                strings.continueGuestBtn,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            "Khám phá di sản không cần tài khoản",
-            fontSize = 10.sp,
+            strings.guestSub,
+            fontSize = 11.sp,
             color = LoginGray
         )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        // Nút mở nhanh chế độ Phát sóng iBeacon (1 chạm biến điện thoại thành máy phát cho demo nhiều máy)
+        OutlinedButton(
+            onClick = onBeaconStation,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp),
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color(0xFFFFF5EA),
+                contentColor = LoginOrange
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD8B8))
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_antenna),
+                contentDescription = null,
+                tint = LoginOrange,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = strings.beaconStationShortcut,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }

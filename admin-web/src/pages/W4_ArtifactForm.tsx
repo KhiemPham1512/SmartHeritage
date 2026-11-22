@@ -33,7 +33,7 @@ export default function W4_ArtifactForm({ artifactId, onCancel, onSaved }: Props
   useEffect(() => {
     if (!artifactId) return;
     let active = true;
-    apiFetch<Artifact>(`/artifacts/${artifactId}?lang=vi`)
+    apiFetch<Artifact>(`/api/artifacts/${artifactId}?lang=vi`)
       .then(data => { if (!active) return; setForm({
         site_id: 1, artifact_code: data.artifact_code || "", zone_name: data.zone_name || "",
         name_vi: data.name_vi || "", name_en: data.name_en || "", summary_vi: data.summary_vi || "",
@@ -92,10 +92,12 @@ export default function W4_ArtifactForm({ artifactId, onCancel, onSaved }: Props
         translated_langs: form.translated_langs, map_x: Number(form.map_x), map_y: Number(form.map_y), status: form.status,
       };
       if (editing) {
-        const { artifact_code: _code, site_id: _site, ...updatePayload } = payload;
-        await apiFetch(`/artifacts/${artifactId}`, { method: "PUT", body: updatePayload });
+        const updatePayload: Partial<ArtifactPayload> = { ...payload };
+        delete updatePayload.artifact_code; // mã và site không sửa được sau khi tạo
+        delete updatePayload.site_id;
+        await apiFetch(`/api/artifacts/${artifactId}`, { method: "PUT", body: JSON.stringify(updatePayload) });
       } else {
-        await apiFetch("/artifacts", { method: "POST", body: payload });
+        await apiFetch("/api/artifacts", { method: "POST", body: JSON.stringify(payload) });
       }
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : "Không thể lưu hiện vật."); }

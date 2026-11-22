@@ -3,8 +3,14 @@ package com.example.smartheritage_mobile.data.repository
 import com.example.smartheritage_mobile.data.remote.RetrofitClient
 import com.example.smartheritage_mobile.model.Artifact
 import com.example.smartheritage_mobile.model.ArtifactDetailResponse
+import com.example.smartheritage_mobile.model.ArtifactFeedbackDto
+import com.example.smartheritage_mobile.model.FavoriteToggleRequestDto
+import com.example.smartheritage_mobile.model.FavoriteToggleResponseDto
+import com.example.smartheritage_mobile.model.FeedbackCreateRequestDto
+import com.example.smartheritage_mobile.model.MyVisitLogsResponse
 import com.example.smartheritage_mobile.model.ResolvedBeaconResponse
 import com.example.smartheritage_mobile.model.SiteMapResponse
+import com.example.smartheritage_mobile.model.VisitLogCreateRequest
 import retrofit2.Response
 
 class ArtifactRepository {
@@ -35,5 +41,29 @@ class ArtifactRepository {
             siteId = siteId,
             lang = lang
         )
+    }
+
+    suspend fun recordVisitLog(request: VisitLogCreateRequest): Response<Map<String, Any>> {
+        return RetrofitClient.artifactApi.recordVisitLog(request)
+    }
+
+    suspend fun toggleFavorite(request: FavoriteToggleRequestDto): Response<FavoriteToggleResponseDto> {
+        return RetrofitClient.artifactApi.toggleFavorite(request)
+    }
+
+    suspend fun getMyFavoritesAndHistory(
+        userId: Int? = null,
+        deviceId: String = "android-guest-01",
+        lang: String = "vi"
+    ): Response<MyVisitLogsResponse> {
+        return RetrofitClient.artifactApi.getMyFavoritesAndHistory(
+            userId = userId,
+            deviceId = deviceId,
+            lang = lang
+        )
+    }
+
+    suspend fun submitFeedback(request: FeedbackCreateRequestDto): Response<ArtifactFeedbackDto> {
+        return RetrofitClient.artifactApi.submitFeedback(request)
     }
 }

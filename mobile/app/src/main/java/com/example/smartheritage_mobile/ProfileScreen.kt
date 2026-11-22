@@ -1,22 +1,26 @@
 package com.example.smartheritage_mobile
 
-
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartheritage_mobile.config.getAppStrings
+import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 
 private val ProfileBackground = Color(0xFFFAF8F6)
 private val ProfileOrange = Color(0xFFB95008)
@@ -32,34 +36,40 @@ fun ProfileScreen(
     onFavorites: () -> Unit,
     onSimulator: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val cache = remember { LocalArtifactCache.getInstance(context) }
+
     var beaconEnabled by remember { mutableStateOf(true) }
-    var selectedLanguage by remember { mutableStateOf("Tiếng Việt") }
+    var currentLang by remember { mutableStateOf(cache.getPreferredLanguage()) }
+    val strings = remember(currentLang) { getAppStrings(currentLang) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(ProfileBackground)
+            .statusBarsPadding()
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 20.dp),
+                .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Tài khoản cá nhân",
-                fontSize = 19.sp,
+                strings.profileTitle,
+                fontSize = 20.sp,
                 fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold,
                 color = ProfileText,
                 modifier = Modifier.weight(1f)
             )
 
-            Text(
-                "⚙",
-                fontSize = 23.sp,
-                color = ProfileOrange
+            Icon(
+                painter = painterResource(id = R.drawable.ic_settings),
+                contentDescription = null,
+                tint = ProfileOrange,
+                modifier = Modifier.size(22.dp)
             )
         }
 
@@ -69,7 +79,8 @@ fun ProfileScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -92,10 +103,11 @@ fun ProfileScreen(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "♙",
-                        fontSize = 24.sp,
-                        color = ProfileOrange
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_user),
+                        contentDescription = null,
+                        tint = ProfileOrange,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
@@ -104,7 +116,7 @@ fun ProfileScreen(
                 Column {
                     Text(
                         "Nguyễn Văn A",
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = ProfileText
                     )
@@ -113,7 +125,7 @@ fun ProfileScreen(
 
                     Text(
                         "nguyenvana@email.com",
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         color = ProfileGray
                     )
                 }
@@ -122,8 +134,8 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(18.dp))
 
             Text(
-                "CÀI ĐẶT",
-                fontSize = 9.sp,
+                strings.settingsHeader,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = ProfileGray
             )
@@ -134,66 +146,79 @@ fun ProfileScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(58.dp)
                     .background(Color.White, RoundedCornerShape(11.dp))
                     .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
                     .clickable {
-                        selectedLanguage =
-                            if (selectedLanguage == "Tiếng Việt")
-                                "English"
-                            else
-                                "Tiếng Việt"
+                        val nextLang = if (currentLang == "vi") "en" else "vi"
+                        currentLang = nextLang
+                        cache.setPreferredLanguage(nextLang)
                     }
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("◎", color = ProfileOrange, fontSize = 19.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_globe),
+                    contentDescription = null,
+                    tint = ProfileOrange,
+                    modifier = Modifier.size(20.dp)
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Ngôn ngữ thuyết minh",
-                        fontSize = 10.sp,
+                        strings.audioLanguageTitle,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = ProfileText
                     )
                     Text(
-                        selectedLanguage,
-                        fontSize = 9.sp,
+                        strings.languageDisplayName,
+                        fontSize = 11.sp,
                         color = ProfileGray
                     )
                 }
 
-                Text("›", color = ProfileGray, fontSize = 22.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = ProfileGray,
+                    modifier = Modifier.size(18.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Beacon notification
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(58.dp)
                     .background(Color.White, RoundedCornerShape(11.dp))
                     .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("♧", color = ProfileOrange, fontSize = 19.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_bell),
+                    contentDescription = null,
+                    tint = ProfileOrange,
+                    modifier = Modifier.size(20.dp)
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Thông báo tự động iBeacon",
-                        fontSize = 10.sp,
+                        strings.autoBeaconTitle,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = ProfileText
                     )
                     Text(
-                        if (beaconEnabled) "Bật thông báo" else "Tắt thông báo",
-                        fontSize = 9.sp,
+                        if (beaconEnabled) strings.autoBeaconOn else strings.autoBeaconOff,
+                        fontSize = 11.sp,
                         color = ProfileGray
                     )
                 }
@@ -210,76 +235,96 @@ fun ProfileScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Help and support
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(58.dp)
                     .background(Color.White, RoundedCornerShape(11.dp))
                     .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
                     .clickable { }
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("□", color = ProfileOrange, fontSize = 19.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_help),
+                    contentDescription = null,
+                    tint = ProfileOrange,
+                    modifier = Modifier.size(20.dp)
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    "Trợ giúp & hỗ trợ",
+                    strings.helpSupportTitle,
                     modifier = Modifier.weight(1f),
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = ProfileText
                 )
 
-                Text("›", color = ProfileGray, fontSize = 22.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = ProfileGray,
+                    modifier = Modifier.size(18.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // iBeacon Simulator (Test/Demo)
+            // iBeacon Transmitter Mode (Multi-Phone Demo)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(58.dp)
                     .background(Color.White, RoundedCornerShape(11.dp))
                     .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
                     .clickable { onSimulator() }
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("📡", color = ProfileOrange, fontSize = 19.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_antenna),
+                    contentDescription = null,
+                    tint = ProfileOrange,
+                    modifier = Modifier.size(20.dp)
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Chế độ Giả lập iBeacon (Test/Demo)",
-                        fontSize = 10.sp,
+                        strings.simulatorModeTitle,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = ProfileText
                     )
                     Text(
-                        "Phát sóng iBeacon để kiểm thử cột mốc M3/M4",
-                        fontSize = 9.sp,
+                        strings.simulatorModeSub,
+                        fontSize = 10.sp,
                         color = ProfileGray
                     )
                 }
 
-                Text("›", color = ProfileGray, fontSize = 22.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = ProfileGray,
+                    modifier = Modifier.size(18.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Logout
             OutlinedButton(
                 onClick = onLogout,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(43.dp),
+                    .height(46.dp),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = Color(0xFFFFF8F7),
@@ -290,57 +335,31 @@ fun ProfileScreen(
                     Color(0xFFFFD5D2)
                 )
             ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_logout),
+                    contentDescription = null,
+                    tint = Color(0xFFB42318),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "⇥   Đăng xuất",
-                    fontSize = 11.sp,
+                    strings.logoutBtn,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Bottom navigation
-        HorizontalDivider(color = ProfileBorder)
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .background(Color.White),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ProfileNavItem("⌂", "Trang chủ", false, onHome)
-            ProfileNavItem("▣", "Bản đồ", false, onMap)
-            ProfileNavItem("♡", "Đã lưu", false, onFavorites)
-            ProfileNavItem("♙", "Cá nhân", true, {})
-        }
-    }
-}
-
-@Composable
-private fun ProfileNavItem(
-    icon: String,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            icon,
-            fontSize = 19.sp,
-            color = if (selected) ProfileOrange else ProfileGray
-        )
-
-        Text(
-            label,
-            fontSize = 8.sp,
-            color = if (selected) ProfileOrange else ProfileGray,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        // Bottom navigation (Có navigationBarsPadding)
+        SmartHeritageBottomBar(
+            currentTab = BottomNavTab.PROFILE,
+            strings = strings,
+            onHome = onHome,
+            onMap = onMap,
+            onFavorites = onFavorites,
+            onProfile = {}
         )
     }
 }

@@ -32,3 +32,26 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   }
   return (await response.json()) as T;
 }
+
+// Đường dẫn media backend trả về là tương đối (/static/...) → ghép API_BASE để <img>/<audio> tải được.
+export function mediaUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  return /^https?:\/\//.test(path) ? path : API_BASE + (path.startsWith("/") ? path : "/" + path);
+}
+
+// Upload multipart: không dùng apiFetch vì nó ép Content-Type JSON.
+export async function uploadMedia(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  const token = localStorage.getItem("sh_token");
+  const response = await fetch(API_BASE + "/api/upload/media", {
+    method: "POST",
+    body,
+    headers: token ? { Authorization: "Bearer " + token } : undefined,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Lỗi tải file" }));
+    throw new Error(err.detail || "HTTP Error " + String(response.status));
+  }
+  return ((await response.json()) as { url: string }).url;
+}
