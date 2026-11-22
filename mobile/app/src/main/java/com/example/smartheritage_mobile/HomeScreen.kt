@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
 import com.example.smartheritage_mobile.config.BeaconConfig
+import com.example.smartheritage_mobile.config.TriggerPolicy
 import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
@@ -148,6 +149,8 @@ fun HomeScreen(
 
     // --- 2. TRẠNG THÁI IBEACON DETECTED & COOLDOWN MAP (M4) ---
     val cooldownMap = remember { mutableStateMapOf<Int, Long>() }
+    val radiusMap = remember { mutableMapOf<Int, Double>() } // minor → bán kính kích hoạt do Admin đặt (W5)
+    val blockedUntil = remember { mutableMapOf<Int, Long>() } // minor → thời điểm được hỏi server lại (không gọi mỗi giây)
     var detectedArtifact by remember { mutableStateOf<ResolvedBeaconResponse?>(null) }
     var showDetectedBottomSheet by remember { mutableStateOf(false) }
     var isLoadingBeacon by remember { mutableStateOf(false) }
@@ -155,14 +158,15 @@ fun HomeScreen(
 
     // --- 3. HÀM TRUNG TÂM XỬ LÝ TÍN HIỆU IBEACON (DÙNG CHO BLE THẬT & SIMULATOR 1 MÁY) ---
     fun processDetectedSignal(uuid: String, major: Int, minor: Int, distance: Double) {
-        // Kiểm tra UUID và Khoảng cách <= 2.0m
-        if (!uuid.equals(BeaconConfig.GROUP_UUID, ignoreCase = true) || distance > BeaconConfig.MAX_DISTANCE_METERS) {
-            Log.d("BeaconProcess", "Bỏ qua iBeacon minor=$minor do khoảng cách ${distance}m > ${BeaconConfig.MAX_DISTANCE_METERS}m hoặc sai UUID")
+        // Kiểm tra UUID và khoảng cách so với bán kính của chính beacon này (chưa biết → quét tối đa 5 m)
+        if (!uuid.equals(BeaconConfig.GROUP_UUID, ignoreCase = true) || !TriggerPolicy.isCandidate(distance, radiusMap[minor])) {
+            Log.d("BeaconProcess", "Bỏ qua iBeacon minor=$minor do khoảng cách ${distance}m > ${radiusMap[minor] ?: BeaconConfig.SCAN_MAX_DISTANCE_METERS}m hoặc sai UUID")
             return
         }
 
         // Kiểm tra điều kiện Cooldown 5 phút (300,000 ms)
         val now = System.currentTimeMillis()
+        if ((blockedUntil[minor] ?: 0L) > now) return
         val lastTriggered = cooldownMap[minor]
         if (lastTriggered != null && (now - lastTriggered) <= BeaconConfig.COOLDOWN_MS) {
             val remainSec = (BeaconConfig.COOLDOWN_MS - (now - lastTriggered)) / 1000
@@ -180,6 +184,14 @@ fun HomeScreen(
                 val response = repository.resolveBeacon(major = major, minor = minor, lang = apiLanguage)
                 if (response.isSuccessful && response.body() != null) {
                     val resolvedBody = response.body()!!
+                    val radius = TriggerPolicy.radiusFor(resolvedBody.trigger_distance)
+                    radiusMap[minor] = radius
+                    if (distance > radius) {
+                        // Vừa biết bán kính của beacon này: khách chưa đứng đủ gần → chưa bật popup
+                        cooldownMap.remove(minor)
+                        Log.d("BeaconProcess", "minor=$minor ở ${distance}m, ngoài bán kính ${radius}m")
+                        return@launch
+                    }
                     detectedArtifact = resolvedBody
                     // Lưu ngay hiện vật vừa quét vào bảng CachedArtifact để xem ngoài vùng sóng (M5)
                     localCache.saveFromResolvedBeacon(resolvedBody)
@@ -187,13 +199,15 @@ fun HomeScreen(
                     scanErrorMessage = null
                     Log.d("BeaconProcess", "Kích hoạt & lưu cache thành công hiện vật minor=$minor: ${resolvedBody.name}")
                 } else {
-                    // HTTP 404 (VD: Beacon LOW_BATTERY/LOST_SIGNAL 103, 104) hoặc không tìm thấy:
+                    // HTTP 404 (VD: Beacon LOST_SIGNAL 104) hoặc không tìm thấy:
                     cooldownMap.remove(minor)
+                    blockedUntil[minor] = System.currentTimeMillis() + TriggerPolicy.RETRY_AFTER_NOT_FOUND_MS
                     scanErrorMessage = "iBeacon (minor=$minor) không khả dụng hoặc chưa được kích hoạt (${response.code()})"
                     Log.e("BeaconProcess", scanErrorMessage!!)
                 }
             } catch (e: Exception) {
                 cooldownMap.remove(minor)
+                blockedUntil[minor] = System.currentTimeMillis() + TriggerPolicy.RETRY_AFTER_ERROR_MS
                 scanErrorMessage = "Lỗi kết nối máy chủ resolve iBeacon: ${e.message}"
                 Log.e("BeaconProcess", "Lỗi resolve minor=$minor", e)
             } finally {
@@ -229,7 +243,7 @@ fun HomeScreen(
             val validBeacons = beacons.filter { beacon ->
                 beacon.id1 != null &&
                         beacon.id1.toString().equals(BeaconConfig.GROUP_UUID, ignoreCase = true) &&
-                        beacon.distance <= BeaconConfig.MAX_DISTANCE_METERS
+                        TriggerPolicy.isCandidate(beacon.distance, beacon.id3?.toInt()?.let { radiusMap[it] })
             }
 
             val closestBeacon = validBeacons.minByOrNull { it.distance }

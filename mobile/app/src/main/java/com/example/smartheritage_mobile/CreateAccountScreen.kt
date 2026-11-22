@@ -26,6 +26,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
+import com.example.smartheritage_mobile.data.repository.ArtifactRepository
+import com.example.smartheritage_mobile.model.errorDetail
+import kotlinx.coroutines.launch
 
 private val RegisterBackground = Color(0xFFFAF8F6)
 private val RegisterOrange = Color(0xFFB95008)
@@ -51,6 +55,9 @@ fun CreateAccountScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    val repository = remember { ArtifactRepository() }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -298,10 +305,28 @@ fun CreateAccountScreen(
                     }
 
                     else -> {
-                        onRegisterSuccess()
+                        loading = true
+                        scope.launch {
+                            try {
+                                val res = repository.register(fullName.trim(), email.trim(), password, lang)
+                                val body = res.body()
+                                if (res.isSuccessful && body != null) {
+                                    Session.saveLogin(body)
+                                    onRegisterSuccess()
+                                } else {
+                                    errorMessage = res.errorDetail()
+                                        ?: if (strings.isEn) "Sign-up failed (${res.code()})." else "Đăng ký thất bại (${res.code()})."
+                                }
+                            } catch (e: Exception) {
+                                errorMessage = strings.networkError
+                            } finally {
+                                loading = false
+                            }
+                        }
                     }
                 }
             },
+            enabled = !loading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp),
@@ -311,7 +336,7 @@ fun CreateAccountScreen(
             )
         ) {
             Text(
-                text = strings.registerNow,
+                text = if (loading) "..." else strings.registerNow,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )

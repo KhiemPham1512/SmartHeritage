@@ -25,7 +25,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartheritage_mobile.config.getAppStrings
+import com.example.smartheritage_mobile.config.ServerAddress
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
+import com.example.smartheritage_mobile.data.repository.ArtifactRepository
+import com.example.smartheritage_mobile.model.errorDetail
+import kotlinx.coroutines.launch
 
 private val LoginBackground = Color(0xFFFAF8F6)
 private val LoginOrange = Color(0xFFB95008)
@@ -49,6 +54,18 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var showServerDialog by remember { mutableStateOf(false) }
+    var serverShown by remember { mutableStateOf(Session.serverAddress) }
+    val repository = remember { ArtifactRepository() }
+    val scope = rememberCoroutineScope()
+
+    if (showServerDialog) {
+        ServerSettingsDialog(strings = strings, onDismiss = {
+            showServerDialog = false
+            serverShown = Session.serverAddress
+        })
+    }
 
     Column(
         modifier = Modifier
@@ -224,9 +241,28 @@ fun LoginScreen(
                         .matcher(email).matches()) {
                     errorMessage = if (strings.isEn) "Invalid email address." else "Địa chỉ email không hợp lệ."
                 } else {
-                    onLoginSuccess()
+                    loading = true
+                    scope.launch {
+                        try {
+                            val res = repository.login(email.trim(), password)
+                            val body = res.body()
+                            if (res.isSuccessful && body != null) {
+                                Session.saveLogin(body)
+                                cache.setPreferredLanguage(if (body.user.preferred_lang.equals("en", ignoreCase = true)) "en" else "vi")
+                                onLoginSuccess()
+                            } else {
+                                errorMessage = res.errorDetail()
+                                    ?: if (strings.isEn) "Sign-in failed (${res.code()})." else "Đăng nhập thất bại (${res.code()})."
+                            }
+                        } catch (e: Exception) {
+                            errorMessage = strings.networkError
+                        } finally {
+                            loading = false
+                        }
+                    }
                 }
             },
+            enabled = !loading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp),
@@ -236,7 +272,7 @@ fun LoginScreen(
             )
         ) {
             Text(
-                strings.loginBtn,
+                if (loading) "..." else strings.loginBtn,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -339,6 +375,17 @@ fun LoginScreen(
                 fontWeight = FontWeight.Bold
             )
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = strings.serverLabel + ": " + (ServerAddress.normalize(serverShown) ?: strings.serverAuto),
+            fontSize = 11.sp,
+            color = LoginGray,
+            modifier = Modifier
+                .clickable { showServerDialog = true }
+                .padding(8.dp)
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
     }

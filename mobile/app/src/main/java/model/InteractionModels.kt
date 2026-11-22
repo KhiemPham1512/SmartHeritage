@@ -1,5 +1,6 @@
 package com.example.smartheritage_mobile.model
 
+import com.example.smartheritage_mobile.data.local.Session
 import com.google.gson.annotations.SerializedName
 
 data class VisitLogCreateRequest(
@@ -7,7 +8,7 @@ data class VisitLogCreateRequest(
     val user_id: Int? = null,
 
     @SerializedName("device_id")
-    val device_id: String = "android-guest-01",
+    val device_id: String = Session.deviceId,
 
     @SerializedName("artifact_id")
     val artifact_id: Int,
@@ -30,7 +31,7 @@ data class FavoriteToggleRequestDto(
     val user_id: Int? = null,
 
     @SerializedName("device_id")
-    val device_id: String = "android-guest-01",
+    val device_id: String = Session.deviceId,
 
     @SerializedName("artifact_id")
     val artifact_id: Int
@@ -89,7 +90,7 @@ data class FeedbackCreateRequestDto(
     val user_id: Int? = null,
 
     @SerializedName("visitor_name")
-    val visitor_name: String = "Nguyễn Văn A",
+    val visitor_name: String = Session.fullName ?: "Khách tham quan",
 
     @SerializedName("artifact_id")
     val artifact_id: Int,

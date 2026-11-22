@@ -6,10 +6,24 @@ import com.example.smartheritage_mobile.data.remote.RetrofitClient
 object BeaconConfig {
     const val GROUP_UUID = "FDA50693-A4E2-4FB1-AFCF-C6EB07647825"
     const val DEFAULT_MAJOR = 1
-    const val MAX_DISTANCE_METERS = 2.0
+    const val MAX_DISTANCE_METERS = 2.0 // bán kính mặc định khi server chưa cấu hình trigger_distance
+    const val SCAN_MAX_DISTANCE_METERS = 5.0 // chỉ gọi resolve khi beacon trong phạm vi này (bán kính lớn nhất ở W5)
     const val COOLDOWN_MS = 300_000L // 5 phút (300,000ms)
     const val IBEACON_LAYOUT = "m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"
     val TEST_MINORS = listOf(101, 102, 103, 104, 105)
+}
+
+/** Quyết định khi nào một beacon được thử kích hoạt: mỗi beacon có bán kính riêng do Admin đặt ở W5 (trigger_distance). */
+object TriggerPolicy {
+    const val RETRY_AFTER_NOT_FOUND_MS = 30_000L // beacon bị khóa/mất tín hiệu/chưa gắn hiện vật: đừng hỏi server mỗi giây
+    const val RETRY_AFTER_ERROR_MS = 5_000L
+
+    fun radiusFor(serverRadius: Double?): Double =
+        if (serverRadius != null && serverRadius > 0.0) serverRadius else BeaconConfig.MAX_DISTANCE_METERS
+
+    /** knownRadius = null: chưa resolve beacon này lần nào → dùng giới hạn quét tối đa để biết bán kính của nó. */
+    fun isCandidate(distance: Double, knownRadius: Double?): Boolean =
+        distance <= (knownRadius ?: BeaconConfig.SCAN_MAX_DISTANCE_METERS)
 }
 
 /**
@@ -21,7 +35,7 @@ fun String?.toFullMediaUrl(): String? {
     if (this.startsWith("http://") || this.startsWith("https://")) {
         return this
     }
-    val baseUrl = RetrofitClient.PRIMARY_URL.removeSuffix("/")
+    val baseUrl = RetrofitClient.currentBaseUrl().removeSuffix("/")
     val relativePath = if (this.startsWith("/")) this else "/$this"
     return "$baseUrl$relativePath"
 }

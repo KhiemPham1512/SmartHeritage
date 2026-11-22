@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import require_staff
+from app.auth import get_optional_user, require_staff
 from app.schemas import (
     VisitLogCreate, FavoriteToggleRequest,
     FeedbackCreate, FeedbackVisibilityUpdate
@@ -20,22 +20,29 @@ router = APIRouter(prefix="/api", tags=["4. Visitor Interactions & Analytics (M6
 # =========================================================================
 # M6: TƯƠNG TÁC KHÁCH THAM QUAN (YÊU THÍCH, LỊCH SỬ & GỬI ĐÁNH GIÁ - MOBILE MÀN 8, 9)
 # =========================================================================
+def identity(user: dict | None) -> int | None:
+    # Danh tính lấy từ token; user_id do client gửi không được tin (tránh đọc/ghi lịch sử của người khác).
+    # Không có token hợp lệ → chế độ Khách, định danh theo device_id.
+    return user["user_id"] if user else None
+
+
 @router.post("/visit-logs")
-def record_visit_log(req: VisitLogCreate, db: Session = Depends(get_db)):
+def record_visit_log(req: VisitLogCreate, db: Session = Depends(get_db), user: dict | None = Depends(get_optional_user)):
     row = db.execute(
         text("""
             INSERT INTO dbo.VisitLogs (user_id, device_id, artifact_id, beacon_id, lang_used, duration_seconds, is_favorite)
             OUTPUT INSERTED.log_id, INSERTED.visited_at
             VALUES (:user_id, :device_id, :artifact_id, :beacon_id, :lang_used, :duration_seconds, :is_favorite)
         """),
-        req.model_dump()
+        {**req.model_dump(), "user_id": identity(user)}
     ).mappings().first()
     db.commit()
     return {"message": "Đã ghi nhận lịch sử tham quan", "log": dict(row)}
 
 
 @router.post("/favorites/toggle")
-def toggle_favorite_artifact(req: FavoriteToggleRequest, db: Session = Depends(get_db)):
+def toggle_favorite_artifact(req: FavoriteToggleRequest, db: Session = Depends(get_db), user: dict | None = Depends(get_optional_user)):
+    uid = identity(user)
     # Kiểm tra xem khách (theo user_id hoặc device_id) đã có log với hiện vật này chưa
     existing = db.execute(
         text("""
@@ -45,7 +52,7 @@ def toggle_favorite_artifact(req: FavoriteToggleRequest, db: Session = Depends(g
               AND ((:uid IS NOT NULL AND user_id = :uid) OR (:uid IS NULL AND device_id = :did))
             ORDER BY visited_at DESC
         """),
-        {"aid": req.artifact_id, "uid": req.user_id, "did": req.device_id}
+        {"aid": req.artifact_id, "uid": uid, "did": req.device_id}
     ).mappings().first()
 
     if existing:
@@ -61,7 +68,7 @@ def toggle_favorite_artifact(req: FavoriteToggleRequest, db: Session = Depends(g
                 INSERT INTO dbo.VisitLogs (user_id, device_id, artifact_id, lang_used, duration_seconds, is_favorite)
                 VALUES (:uid, :did, :aid, 'vi', 30, 1)
             """),
-            {"uid": req.user_id, "did": req.device_id, "aid": req.artifact_id}
+            {"uid": uid, "did": req.device_id, "aid": req.artifact_id}
         )
 
     db.commit()
@@ -70,10 +77,11 @@ def toggle_favorite_artifact(req: FavoriteToggleRequest, db: Session = Depends(g
 
 @router.get("/visit-logs/me")
 def get_my_favorites_and_history(
-    user_id: int = Query(None, description="ID người dùng (nếu đã đăng nhập)"),
+    user_id: int = Query(None, description="Bỏ qua (giữ để tương thích app cũ): danh tính lấy từ token"),
     device_id: str = Query("android-guest-01", description="Device ID (nếu dùng chế độ Guest)"),
     lang: str = Query("vi", description="Ngôn ngữ: vi hoặc en"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: dict | None = Depends(get_optional_user)
 ):
     # Phục vụ cả 2 Tab "Yêu thích" và "Lịch sử" trên Mobile Màn 9
     rows = db.execute(
@@ -96,7 +104,7 @@ def get_my_favorites_and_history(
                OR (:uid IS NULL AND v.device_id = :did)
             ORDER BY v.visited_at DESC
         """),
-        {"uid": user_id, "did": device_id, "lang": lang}
+        {"uid": identity(user), "did": device_id, "lang": lang}
     ).mappings().all()
 
     history = [dict(r) for r in rows]
@@ -115,7 +123,7 @@ def get_my_favorites_and_history(
 
 
 @router.post("/feedbacks")
-def submit_feedback(req: FeedbackCreate, db: Session = Depends(get_db)):
+def submit_feedback(req: FeedbackCreate, db: Session = Depends(get_db), user: dict | None = Depends(get_optional_user)):
     # Phục vụ hộp thoại "Chia sẻ cảm nhận của bạn" ở Mobile Màn 8
     if not db.execute(text("SELECT 1 FROM dbo.Artifacts WHERE artifact_id = :id"), {"id": req.artifact_id}).first():
         raise HTTPException(status_code=404, detail="Không tìm thấy hiện vật")
@@ -125,7 +133,7 @@ def submit_feedback(req: FeedbackCreate, db: Session = Depends(get_db)):
             OUTPUT INSERTED.feedback_id, INSERTED.visitor_name, INSERTED.rating, INSERTED.comment, INSERTED.created_at
             VALUES (:user_id, :visitor_name, :artifact_id, :rating, :comment, 1)
         """),
-        req.model_dump()
+        {**req.model_dump(), "user_id": identity(user)}
     ).mappings().first()
     db.commit()
     return dict(row)

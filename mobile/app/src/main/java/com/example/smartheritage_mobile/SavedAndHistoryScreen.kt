@@ -29,6 +29,7 @@ import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
 import com.example.smartheritage_mobile.data.repository.ArtifactRepository
 import com.example.smartheritage_mobile.model.FavoriteToggleRequestDto
 import com.example.smartheritage_mobile.model.VisitLogItemDto
@@ -71,8 +72,8 @@ fun SavedAndHistoryScreen(
 
         try {
             val response = repository.getMyFavoritesAndHistory(
-                userId = null,
-                deviceId = "android-guest-01",
+                userId = Session.userId,
+                deviceId = Session.deviceId,
                 lang = lang
             )
             if (response.isSuccessful && response.body() != null) {
@@ -275,8 +276,8 @@ fun SavedAndHistoryScreen(
                                     try {
                                         repository.toggleFavorite(
                                             FavoriteToggleRequestDto(
-                                                user_id = null,
-                                                device_id = "android-guest-01",
+                                                user_id = Session.userId,
+                                                device_id = Session.deviceId,
                                                 artifact_id = item.artifact_id
                                             )
                                         )
