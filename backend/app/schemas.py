@@ -39,6 +39,7 @@ class AdminUserUpdate(BaseModel):
     role: Optional[str] = None
     preferred_lang: Optional[str] = None
     is_active: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=6, description="Đặt lại mật khẩu (tùy chọn)")
 
 
 # =========================================================================
@@ -87,43 +88,49 @@ class ArtifactUpdate(BaseModel):
 # =========================================================================
 # M3: SCHEMAS CHO QUẢN LÝ THIẾT BỊ IBEACON & BẢN ĐỒ DI TÍCH (W5, W6, Mobile 7)
 # =========================================================================
+UUID_PATTERN = r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+STATUS_PATTERN = r"^(ACTIVE|LOW_BATTERY|LOST_SIGNAL)$"
+DEFAULT_UUID = "FDA50693-A4E2-4FB1-AFCF-C6EB07647825"
+
+
+# Major/Minor của iBeacon là số 16 bit (0-65535); TxPower là công suất đo ở 1 m nên luôn âm
 class BeaconCreate(BaseModel):
-    beacon_code: str = Field(..., examples=["BC-006"])
+    beacon_code: str = Field(..., min_length=1, max_length=50, examples=["BC-006"])
     artifact_id: Optional[int] = Field(None, description="ID hiện vật được gán (nếu có)")
-    zone_name: str = Field("Tầng 1 - Phòng Đông Sơn")
-    uuid: str = Field("FDA50693-A4E2-4FB1-AFCF-C6EB07647825")
-    major: int = Field(1, examples=[1])
-    minor: int = Field(..., examples=[106])
-    tx_power: int = -59
-    trigger_distance: float = Field(2.0, description="Bán kính phát sóng (m)")
+    zone_name: str = Field("Tầng 1 - Phòng Đông Sơn", max_length=150)
+    uuid: str = Field(DEFAULT_UUID, pattern=UUID_PATTERN)
+    major: int = Field(1, ge=0, le=65535, examples=[1])
+    minor: int = Field(..., ge=0, le=65535, examples=[106])
+    tx_power: int = Field(-59, ge=-100, le=0)
+    trigger_distance: float = Field(2.0, gt=0, le=50, description="Bán kính kích hoạt (m)")
     battery_level: int = Field(100, ge=0, le=100)
     map_x: float = 340.0
     map_y: float = 215.0
-    status: str = Field("ACTIVE", description="ACTIVE, LOW_BATTERY, LOST_SIGNAL")
+    status: str = Field("ACTIVE", pattern=STATUS_PATTERN, description="ACTIVE, LOW_BATTERY, LOST_SIGNAL")
 
 
 class BeaconUpdate(BaseModel):
-    beacon_code: Optional[str] = None
+    # Không gửi artifact_id → giữ nguyên; gửi null → gỡ gán hiện vật
+    beacon_code: Optional[str] = Field(None, min_length=1, max_length=50)
     artifact_id: Optional[int] = None
-    zone_name: Optional[str] = None
-    uuid: Optional[str] = None
-    major: Optional[int] = None
-    minor: Optional[int] = None
-    tx_power: Optional[int] = None
-    trigger_distance: Optional[float] = None
-    battery_level: Optional[int] = None
+    zone_name: Optional[str] = Field(None, max_length=150)
+    uuid: Optional[str] = Field(None, pattern=UUID_PATTERN)
+    major: Optional[int] = Field(None, ge=0, le=65535)
+    minor: Optional[int] = Field(None, ge=0, le=65535)
+    tx_power: Optional[int] = Field(None, ge=-100, le=0)
+    trigger_distance: Optional[float] = Field(None, gt=0, le=50)
+    battery_level: Optional[int] = Field(None, ge=0, le=100)
     map_x: Optional[float] = None
     map_y: Optional[float] = None
-    status: Optional[str] = None
+    status: Optional[str] = Field(None, pattern=STATUS_PATTERN)
 
 
 class BeaconCoordinateUpdate(BaseModel):
     artifact_id: Optional[int] = None
     zone_name: Optional[str] = None
-    trigger_distance: Optional[float] = 2.0
+    trigger_distance: Optional[float] = Field(2.0, gt=0, le=50)
     map_x: float = Field(..., examples=[340.0])
     map_y: float = Field(..., examples=[215.0])
-
 
 class SiteCreate(BaseModel):
     name_vi: str = Field(..., min_length=1, examples=["Bảo tàng Lịch sử Quốc gia"])
@@ -194,3 +201,4 @@ class FeedbackCreate(BaseModel):
 
 class FeedbackVisibilityUpdate(BaseModel):
     is_visible: bool = Field(..., description="True = Hiển thị (Duyệt), False = Đã ẩn")
+    hide_reason: Optional[str] = Field(None, max_length=200, description="Lý do ẩn (chỉ dùng khi is_visible = False)")

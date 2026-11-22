@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Search, RotateCcw, Image as ImageIcon } from "lucide-react";
 import { apiFetch, mediaUrl } from "../api";
 import type { Artifact } from "../types";
-import { BRAND_RED, MaskIcon, Pager } from "../ui";
+import { Banner, BRAND_RED, MaskIcon, Pager } from "../ui";
 
 interface Props {
   onAdd: () => void;
@@ -265,16 +265,6 @@ function Kpi({ icon, value, label }: { icon: string; value: number; label: strin
         <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", lineHeight: 1.1 }}>{value.toLocaleString("vi-VN")}</div>
         <div style={{ fontSize: 12.5, color: "#475569", marginTop: 3 }}>{label}</div>
       </div>
-    </div>
-  );
-}
-
-function Banner({ tone, text, onClose }: { tone: "error" | "ok"; text: string; onClose: () => void }) {
-  const c = tone === "error" ? { color: "#b91c1c", bg: "#fef2f2", border: "#fca5a5" } : { color: "#166534", bg: "#f0fdf4", border: "#86efac" };
-  return (
-    <div role={tone === "error" ? "alert" : "status"} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, border: `1px solid ${c.border}`, backgroundColor: c.bg, color: c.color, fontSize: 13, fontWeight: 600 }}>
-      <span>{text}</span>
-      <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: c.color, cursor: "pointer", fontWeight: 700 }}>Đóng</button>
     </div>
   );
 }

@@ -14,6 +14,19 @@ from app.auth import (
 
 router = APIRouter(prefix="/api", tags=["1. Auth & Users (M1 - W1, W8, Mobile 1,2,3,10)"])
 
+VALID_ROLES = ("ADMIN", "CONTENT_MANAGER", "VISITOR")
+
+
+def check_role(role: str | None) -> None:
+    if role is not None and role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
+
+
+def check_language(db: Session, lang: str | None) -> None:
+    # Users.preferred_lang có khóa ngoại tới Languages → báo 400 rõ ràng thay vì lỗi 500
+    if lang is not None and not db.execute(text("SELECT 1 FROM dbo.Languages WHERE lang_code = :c"), {"c": lang}).first():
+        raise HTTPException(status_code=400, detail="Ngôn ngữ chưa có trong hệ thống")
+
 
 @router.post("/auth/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
@@ -44,6 +57,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/auth/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    check_language(db, req.preferred_lang)
     exists = db.execute(
         text("SELECT user_id FROM dbo.Users WHERE email = :email"),
         {"email": req.email.strip()}
@@ -87,6 +101,7 @@ def update_my_profile(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    check_language(db, req.preferred_lang)
     db.execute(
         text("""
             UPDATE dbo.Users
@@ -128,6 +143,8 @@ def list_users_for_admin(
 
 @router.post("/users", dependencies=[Depends(require_admin)])
 def admin_create_user(req: AdminUserCreate, db: Session = Depends(get_db)):
+    check_role(req.role)
+    check_language(db, req.preferred_lang)
     exists = db.execute(text("SELECT user_id FROM dbo.Users WHERE email = :e"), {"e": req.email}).first()
     if exists:
         raise HTTPException(status_code=400, detail="Email đã tồn tại")
@@ -150,15 +167,26 @@ def admin_create_user(req: AdminUserCreate, db: Session = Depends(get_db)):
     return dict(row)
 
 
-@router.put("/users/{user_id}", dependencies=[Depends(require_admin)])
-def admin_update_user(user_id: int, req: AdminUserUpdate, db: Session = Depends(get_db)):
-    db.execute(
+@router.put("/users/{user_id}")
+def admin_update_user(
+    user_id: int,
+    req: AdminUserUpdate,
+    admin: dict = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    check_role(req.role)
+    if user_id == admin["user_id"] and (req.is_active is False or (req.role and req.role != "ADMIN")):
+        # Tránh Admin tự khóa / tự hạ quyền rồi không còn ai quản trị được hệ thống
+        raise HTTPException(status_code=400, detail="Không thể tự khóa hoặc hạ quyền tài khoản của chính bạn")
+    check_language(db, req.preferred_lang)
+    updated = db.execute(
         text("""
             UPDATE dbo.Users
             SET full_name = COALESCE(:full_name, full_name),
                 role = COALESCE(:role, role),
                 preferred_lang = COALESCE(:preferred_lang, preferred_lang),
-                is_active = COALESCE(:is_active, is_active)
+                is_active = COALESCE(:is_active, is_active),
+                password_hash = COALESCE(:pwd, password_hash)
             WHERE user_id = :uid
         """),
         {
@@ -166,8 +194,12 @@ def admin_update_user(user_id: int, req: AdminUserUpdate, db: Session = Depends(
             "role": req.role,
             "preferred_lang": req.preferred_lang,
             "is_active": req.is_active,
+            "pwd": hash_password(req.password) if req.password else None,
             "uid": user_id
         }
-    )
+    ).rowcount
+    if not updated:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản")
     db.commit()
     return {"message": f"Đã cập nhật tài khoản #{user_id}"}
