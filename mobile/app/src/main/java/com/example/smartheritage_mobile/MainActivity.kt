@@ -13,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -22,7 +23,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.smartheritage_mobile.data.local.LocalArtifactCache
 import com.example.smartheritage_mobile.data.local.Session
+import com.example.smartheritage_mobile.data.repository.ArtifactRepository
 
 class MainActivity : ComponentActivity() {
 
@@ -33,6 +36,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 val navController = rememberNavController()
+
+                // Đồng bộ ngôn ngữ Admin đang bật (W8); ngôn ngữ đang chọn bị tắt thì quay về tiếng Việt
+                LaunchedEffect(Unit) {
+                    try {
+                        ArtifactRepository().refreshLanguages()
+                        val cache = LocalArtifactCache.getInstance(applicationContext)
+                        if (cache.getPreferredLanguage() !in Session.enabledLanguages) cache.setPreferredLanguage("vi")
+                    } catch (e: Exception) {
+                        // Không có mạng: dùng danh sách đã lưu
+                    }
+                }
 
                 NavHost(
                     navController = navController,

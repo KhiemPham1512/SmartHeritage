@@ -1,5 +1,7 @@
 package com.example.smartheritage_mobile.config
 
+import com.example.smartheritage_mobile.data.local.Session
+
 data class AppStrings(
     val isEn: Boolean,
     // WelcomeScreen (M1)
@@ -140,5 +142,8 @@ data class AppStrings(
 )
 
 fun getAppStrings(lang: String): AppStrings {
-    return AppStrings(isEn = lang.equals("en", ignoreCase = true))
+    return AppStrings(
+        isEn = LanguageCycle.isEnglishUi(lang),
+        languageDisplayName = Session.languageName(lang)
+    )
 }

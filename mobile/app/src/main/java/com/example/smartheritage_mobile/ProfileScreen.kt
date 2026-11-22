@@ -166,7 +166,7 @@ fun ProfileScreen(
                     .background(Color.White, RoundedCornerShape(11.dp))
                     .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
                     .clickable {
-                        val nextLang = if (currentLang == "vi") "en" else "vi"
+                        val nextLang = Session.nextLanguage(currentLang)
                         currentLang = nextLang
                         cache.setPreferredLanguage(nextLang)
                         if (Session.isLoggedIn) {

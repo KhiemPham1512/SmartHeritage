@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
 
 private val BackgroundColor = Color(0xFFFAF8F6)
 private val PrimaryColor = Color(0xFFB95008)
@@ -122,7 +123,7 @@ fun WelcomeScreen(
                     RoundedCornerShape(10.dp)
                 )
                 .clickable {
-                    val nextLang = if (currentLang == "vi") "en" else "vi"
+                    val nextLang = Session.nextLanguage(currentLang)
                     currentLang = nextLang
                     cache.setPreferredLanguage(nextLang)
                 }

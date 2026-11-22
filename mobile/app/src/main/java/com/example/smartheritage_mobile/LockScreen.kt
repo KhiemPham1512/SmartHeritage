@@ -248,7 +248,8 @@ fun LoginScreen(
                             val body = res.body()
                             if (res.isSuccessful && body != null) {
                                 Session.saveLogin(body)
-                                cache.setPreferredLanguage(if (body.user.preferred_lang.equals("en", ignoreCase = true)) "en" else "vi")
+                                val preferred = body.user.preferred_lang?.lowercase()
+                                cache.setPreferredLanguage(if (preferred != null && preferred in Session.enabledLanguages) preferred else "vi")
                                 onLoginSuccess()
                             } else {
                                 errorMessage = res.errorDetail()

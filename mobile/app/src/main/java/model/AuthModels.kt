@@ -30,6 +30,12 @@ data class AuthResponseDto(
     @SerializedName("user") val user: AuthUserDto
 )
 
+data class LanguageDto(
+    @SerializedName("lang_code") val lang_code: String,
+    @SerializedName("name_native") val name_native: String,
+    @SerializedName("is_enabled") val is_enabled: Boolean
+)
+
 /** Gson bỏ qua trường null → chỉ gửi những trường cần đổi (server dùng COALESCE). */
 data class ProfileUpdateDto(
     @SerializedName("preferred_lang") val preferred_lang: String? = null,

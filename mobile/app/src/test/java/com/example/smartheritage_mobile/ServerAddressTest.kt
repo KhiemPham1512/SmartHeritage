@@ -26,7 +26,15 @@ class ServerAddressTest {
     @Test
     fun acceptsHostnamesAndHttps() {
         assertEquals("http://pc-khiem:8000", ServerAddress.normalize("pc-khiem"))
-        assertEquals("https://demo.smartheritage.vn:8000", ServerAddress.normalize("HTTPS://demo.smartheritage.vn"))
+    }
+
+    @Test
+    fun explicitSchemeWithoutPortUsesTheSchemeDefaultPort() {
+        // Triển khai thật qua HTTPS (Caddy/Cloudflare Tunnel) nghe cổng 443, không phải 8000
+        assertEquals("https://demo.smartheritage.vn", ServerAddress.normalize("HTTPS://demo.smartheritage.vn"))
+        assertEquals("https://demo.smartheritage.vn", ServerAddress.normalize("https://demo.smartheritage.vn/api/x"))
+        assertEquals("http://192.168.1.5", ServerAddress.normalize("http://192.168.1.5"))
+        assertEquals("https://demo.smartheritage.vn:8443", ServerAddress.normalize("https://demo.smartheritage.vn:8443"))
     }
 
     @Test

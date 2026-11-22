@@ -40,6 +40,8 @@ import com.example.smartheritage_mobile.config.getAppStrings
 import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
+import com.example.smartheritage_mobile.config.LanguageCycle
 import com.example.smartheritage_mobile.data.repository.ArtifactRepository
 import com.example.smartheritage_mobile.model.Artifact
 import com.example.smartheritage_mobile.model.ResolvedBeaconResponse
@@ -74,7 +76,7 @@ fun HomeScreen(
     val localCache = remember { LocalArtifactCache.getInstance(context) }
 
     var apiLanguage by remember { mutableStateOf(localCache.getPreferredLanguage()) }
-    val selectedLanguage = if (apiLanguage == "en") "EN / VI" else "VI / EN"
+    val selectedLanguage = "${apiLanguage.uppercase()} / ${Session.nextLanguage(apiLanguage).uppercase()}"
     val strings = remember(apiLanguage) { getAppStrings(apiLanguage) }
 
     // Danh sách hiện vật lấy từ API
@@ -82,7 +84,7 @@ fun HomeScreen(
 
     // Danh sách 5 hiện vật mẫu song ngữ mặc định (BC-001 đến BC-005)
     val defaultSeedArtifacts = remember(apiLanguage) {
-        val isEn = apiLanguage == "en"
+        val isEn = LanguageCycle.isEnglishUi(apiLanguage)
         LocalArtifactCache.defaultSeeds.take(5).map { seed ->
             Artifact(
                 artifactId = seed.artifactId,
@@ -331,7 +333,7 @@ fun HomeScreen(
                         .background(Color.White, RoundedCornerShape(8.dp))
                         .border(1.dp, HomeBorder, RoundedCornerShape(8.dp))
                         .clickable {
-                            val nextLang = if (apiLanguage == "vi") "en" else "vi"
+                            val nextLang = Session.nextLanguage(apiLanguage)
                             apiLanguage = nextLang
                             localCache.setPreferredLanguage(nextLang)
                         }
