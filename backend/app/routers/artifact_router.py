@@ -33,6 +33,17 @@ def get_artifacts_kpi_cards(db: Session = Depends(get_db)):
     return dict(row)
 
 
+@router.get("/artifacts/next-code", dependencies=[Depends(require_staff)])
+def get_next_artifact_code(db: Session = Depends(get_db)):
+    # Gợi ý mã cho W4 bằng SP vòng lặp WHILE (lấp chỗ trống HV-xxx bị xóa)
+    code = db.execute(text("""
+        DECLARE @code VARCHAR(50);
+        EXEC dbo.sp_GenerateNextArtifactCode @next_code = @code OUTPUT;
+        SELECT @code AS next_code;
+    """)).scalar()
+    return {"next_code": code}
+
+
 @router.get("/artifacts")
 def get_artifacts(
     lang: str = Query("vi", description="Ngôn ngữ: vi hoặc en"),

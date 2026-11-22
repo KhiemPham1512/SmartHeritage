@@ -1,5 +1,5 @@
 // FILE: admin-web/src/App.tsx
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Bell, ChevronDown } from "lucide-react";
 import { clearSession, getSavedUser, getToken, type UserInfo } from "./api";
 import W1_Login from "./pages/W1_Login";
@@ -31,6 +31,13 @@ const MENU_ITEMS: Array<{ key: string; label: string; iconUrl: string }> = [
   { key: "W8", label: "Ngôn ngữ & tài khoản", iconUrl: LAYOUT_ICONS.menuW8 },
 ];
 
+const SCREENS = ["W2", "W3", "W4", "W5", "W6", "W7", "W8"];
+
+function readRoute(): { screen: string; id: string | null } {
+  const [screen, id] = window.location.hash.replace(/^#/, "").split("/");
+  return SCREENS.includes(screen) ? { screen, id: id || null } : { screen: "W2", id: null };
+}
+
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Quản trị viên",
   CONTENT_MANAGER: "Quản lý nội dung",
@@ -45,12 +52,19 @@ function initials(name?: string): string {
 export default function App() {
   const [token, setToken] = useState<string>(getToken);
   const [user, setUser] = useState<UserInfo | null>(getSavedUser);
-  const [activeScreen, setActiveScreen] = useState<string>("W2");
-  const [editingArtifactId, setEditingArtifactId] = useState<string | null>(null);
-  const openArtifactForm = (id: number | null) => {
-    setEditingArtifactId(id === null ? null : String(id));
-    setActiveScreen("W4");
-  };
+  // Màn hiện tại lưu trên URL (#W3, #W4/12) để tải lại trang không mất vị trí
+  const [route, setRoute] = useState(readRoute);
+  const activeScreen = route.screen;
+  const editingArtifactId = route.id;
+  // Đổi hash → sự kiện hashchange cập nhật route (dùng chung cho click menu và nút Back/Forward)
+  const go = (screen: string, id: string | null = null) => window.location.assign("#" + (id ? `${screen}/${id}` : screen));
+  const setActiveScreen = (screen: string) => go(screen);
+  useEffect(() => {
+    const onHash = () => setRoute(readRoute());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const openArtifactForm = (id: number | null) => go("W4", id === null ? null : String(id));
 
   const handleLoginSuccess = (newToken: string, userInfo: UserInfo) => {
     setToken(newToken);

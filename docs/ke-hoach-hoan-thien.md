@@ -60,7 +60,8 @@ Mỗi giai đoạn một nhánh `feature/*` từ `develop`, một PR, merge khi 
 - [x] So từng chi tiết với ảnh Figma W1/W2 (chụp màn hình thật, header có chuông/avatar/vai trò). Dữ liệu demo: `backend/scripts/seed_demo_visits.py` (`--clear` để xóa).
 
 ### GĐ3 — W3–W8 theo Figma (gốc: TV3/TV4/TV5; thực hiện: TV1 + Claude, ~1,5 ngày)
-- [ ] Thay icon bằng bộ icon trong `docs/local/logos/` (W3 thẻ thống kê, W5 thiết bị, W6 điểm iBeacon + lối vào, W7 đánh giá).
+- [x] W3 theo Figma (KPI icon bộ `the_thong_ke`, tab, nhãn ngôn ngữ, phân trang 8 dòng). W4 theo Figma: 2 cột, tab từng ngôn ngữ + Thêm ngôn ngữ (bản dịch `ArtifactTranslations`), audio riêng mỗi ngôn ngữ, bộ ảnh/video (`gallery_json`), gán iBeacon, Lưu bản nháp; mã mới gợi ý bằng `sp_GenerateNextArtifactCode`. URL giữ màn (`#W3`, `#W4/12`).
+- [ ] Thay icon bằng bộ icon trong `docs/local/logos/` (W5 thiết bị, W6 điểm iBeacon + lối vào, W7 đánh giá).
 - [ ] So từng màn với ảnh Figma, sửa lệch.
 - [ ] W4: tải ảnh/MP3 chạy thật; W6: kéo thả tọa độ lưu qua API; W7: ẩn/hiện/xóa; W8: tài khoản + ngôn ngữ.
 - [ ] Mọi màn xử lý 401/403 sau khi bật RBAC.

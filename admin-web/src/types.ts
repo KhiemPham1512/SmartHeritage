@@ -33,4 +33,45 @@ export interface Artifact extends Omit<ArtifactPayload, "site_id"> {
   site_id?: number;
   beacon_id?: number | null;
   beacon_code?: string | null;
+  gallery_json?: string | null;
+}
+
+export interface Language {
+  lang_code: string;
+  name_native: string;
+  name_vi: string;
+  is_enabled: boolean;
+  is_default: boolean;
+  translated_count: number;
+  total_artifacts: number;
+}
+
+export interface Translation {
+  lang_code: string;
+  name: string;
+  summary: string;
+  description: string;
+  audio_url: string | null;
+}
+
+export interface Site {
+  site_id: number;
+  name_vi: string;
+  name_en: string;
+  floor_name: string | null;
+  map_image_url: string | null;
+  is_active: boolean;
+}
+
+export interface BeaconLite {
+  beacon_id: number;
+  beacon_code: string;
+  artifact_id: number | null;
+  artifact_code: string | null;
+  status: string;
+}
+
+export interface GalleryItem {
+  url: string;
+  type: "image" | "video";
 }
