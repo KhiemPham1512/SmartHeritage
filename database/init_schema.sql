@@ -27,20 +27,44 @@ IF OBJECT_ID('dbo.sp_DashboardSnapshot_Serializable', 'P') IS NOT NULL DROP PROC
 IF OBJECT_ID('dbo.sp_GenerateNextArtifactCode', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_GenerateNextArtifactCode;
 IF OBJECT_ID('dbo.sp_AuditBeaconHealth_Cursor', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_AuditBeaconHealth_Cursor;
 
+IF OBJECT_ID('dbo.fn_LocalizedArtifacts', 'IF') IS NOT NULL DROP FUNCTION dbo.fn_LocalizedArtifacts;
 IF OBJECT_ID('dbo.vw_PublicArtifacts_VI_EN', 'V') IS NOT NULL DROP VIEW dbo.vw_PublicArtifacts_VI_EN;
 IF OBJECT_ID('dbo.vw_BeaconHealthMonitor', 'V') IS NOT NULL DROP VIEW dbo.vw_BeaconHealthMonitor;
 
 IF OBJECT_ID('dbo.Feedbacks', 'U') IS NOT NULL DROP TABLE dbo.Feedbacks;
 IF OBJECT_ID('dbo.VisitLogs', 'U') IS NOT NULL DROP TABLE dbo.VisitLogs;
 IF OBJECT_ID('dbo.Beacons', 'U') IS NOT NULL DROP TABLE dbo.Beacons;
+IF OBJECT_ID('dbo.ArtifactTranslations', 'U') IS NOT NULL DROP TABLE dbo.ArtifactTranslations;
 IF OBJECT_ID('dbo.Artifacts', 'U') IS NOT NULL DROP TABLE dbo.Artifacts;
 IF OBJECT_ID('dbo.Sites', 'U') IS NOT NULL DROP TABLE dbo.Sites;
 IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL DROP TABLE dbo.Users;
+IF OBJECT_ID('dbo.Languages', 'U') IS NOT NULL DROP TABLE dbo.Languages;
 GO
 
 -- =========================================================================
 -- PHẦN 2: ĐỊNH NGHĨA MỨC LUẬN LÝ (DDL - 6 BẢNG CỐT LÕI & RÀNG BUỘC TOÀN VẸN)
 -- =========================================================================
+
+-- 0. BẢNG Languages (Khớp với W8 - Ngôn ngữ hệ thống; W4 - tab ngôn ngữ)
+CREATE TABLE dbo.Languages (
+    lang_code VARCHAR(10) NOT NULL PRIMARY KEY,
+    name_native NVARCHAR(50) NOT NULL,
+    name_vi NVARCHAR(50) NOT NULL,
+    is_enabled BIT NOT NULL DEFAULT 1,
+    is_default BIT NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL DEFAULT 0
+);
+GO
+
+INSERT INTO dbo.Languages (lang_code, name_native, name_vi, is_enabled, is_default, sort_order)
+VALUES
+('vi', N'Tiếng Việt', N'Tiếng Việt', 1, 1, 1),
+('en', N'English', N'Tiếng Anh', 1, 0, 2),
+('ko', N'한국어', N'Tiếng Hàn', 1, 0, 3),
+('fr', N'Français', N'Tiếng Pháp', 0, 0, 4),
+('ja', N'日本語', N'Tiếng Nhật', 0, 0, 5),
+('zh', N'中文', N'Tiếng Trung', 0, 0, 6);
+GO
 
 -- 1. BẢNG Users (Khớp với W1, W8 và Mobile 2, 3, 10)
 CREATE TABLE dbo.Users (
@@ -52,7 +76,7 @@ CREATE TABLE dbo.Users (
     role VARCHAR(30) NOT NULL DEFAULT 'VISITOR'
         CONSTRAINT CK_Users_Role CHECK (role IN ('ADMIN', 'CONTENT_MANAGER', 'VISITOR')),
     preferred_lang VARCHAR(10) NOT NULL DEFAULT 'vi'
-        CONSTRAINT CK_Users_Lang CHECK (preferred_lang IN ('vi', 'en', 'ko', 'ja', 'zh')),
+        CONSTRAINT FK_Users_Languages FOREIGN KEY REFERENCES dbo.Languages(lang_code),
     auto_beacon_notify BIT NOT NULL DEFAULT 1,
     is_active BIT NOT NULL DEFAULT 1,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME()
@@ -99,6 +123,22 @@ CREATE TABLE dbo.Artifacts (
         CONSTRAINT CK_Artifacts_Status CHECK (status IN ('PUBLISHED', 'DRAFT', 'HIDDEN')),
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT FK_Artifacts_Sites FOREIGN KEY (site_id) REFERENCES dbo.Sites(site_id) ON DELETE CASCADE
+);
+GO
+
+-- 3b. BẢNG ArtifactTranslations (bản dịch ngoài VI/EN; VI/EN nằm ở các cột _vi/_en của Artifacts)
+CREATE TABLE dbo.ArtifactTranslations (
+    artifact_id INT NOT NULL,
+    lang_code VARCHAR(10) NOT NULL,
+    name NVARCHAR(255) NOT NULL,
+    summary NVARCHAR(500) NOT NULL,
+    description NVARCHAR(MAX) NOT NULL,
+    audio_url VARCHAR(500) NULL,
+    updated_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    CONSTRAINT PK_ArtifactTranslations PRIMARY KEY (artifact_id, lang_code),
+    CONSTRAINT FK_ArtTrans_Artifacts FOREIGN KEY (artifact_id) REFERENCES dbo.Artifacts(artifact_id) ON DELETE CASCADE,
+    CONSTRAINT FK_ArtTrans_Languages FOREIGN KEY (lang_code) REFERENCES dbo.Languages(lang_code),
+    CONSTRAINT CK_ArtTrans_NotViEn CHECK (lang_code NOT IN ('vi', 'en'))
 );
 GO
 
@@ -197,6 +237,23 @@ SELECT
 FROM dbo.Artifacts a
 LEFT JOIN dbo.Beacons b ON a.artifact_id = b.artifact_id
 WHERE a.status = 'PUBLISHED';
+GO
+
+-- Hàm bảng nội tuyến (Inline TVF): nội dung hiện vật theo ngôn ngữ, chưa dịch thì lùi về tiếng Anh.
+-- API dùng chung: LEFT JOIN dbo.fn_LocalizedArtifacts(:lang) l ON l.artifact_id = a.artifact_id
+CREATE FUNCTION dbo.fn_LocalizedArtifacts (@lang VARCHAR(10))
+RETURNS TABLE
+AS
+RETURN
+    SELECT
+        a.artifact_id,
+        name = CASE WHEN @lang = 'vi' THEN a.name_vi WHEN @lang = 'en' THEN a.name_en ELSE COALESCE(t.name, a.name_en) END,
+        summary = CASE WHEN @lang = 'vi' THEN a.summary_vi WHEN @lang = 'en' THEN a.summary_en ELSE COALESCE(t.summary, a.summary_en) END,
+        description = CASE WHEN @lang = 'vi' THEN a.description_vi WHEN @lang = 'en' THEN a.description_en ELSE COALESCE(t.description, a.description_en) END,
+        audio_url = CASE WHEN @lang = 'vi' THEN a.audio_vi_url WHEN @lang = 'en' THEN a.audio_en_url ELSE COALESCE(t.audio_url, a.audio_en_url) END,
+        is_translated = CASE WHEN @lang IN ('vi', 'en') OR t.artifact_id IS NOT NULL THEN 1 ELSE 0 END
+    FROM dbo.Artifacts a
+    LEFT JOIN dbo.ArtifactTranslations t ON t.artifact_id = a.artifact_id AND t.lang_code = @lang;
 GO
 
 -- View giám sát sức khỏe iBeacon sử dụng cấu trúc rẽ nhánh CASE...WHEN (Chương 1 T-SQL)
@@ -492,7 +549,7 @@ VALUES
  N'Ngoc Lu Bronze Drum — The pinnacle of ancient Dong Son bronze casting culture.',
  N'Trống đồng Ngọc Lũ là một trong những chiếc trống đồng cổ nhất và đẹp nhất thuộc nền văn hóa Đông Sơn (niên đại khoảng 2.500 năm trước). Mặt trống đúc nổi ngôi sao 14 cánh cùng các họa tiết chim Lạc và cảnh sinh hoạt của cư dân Việt cổ.',
  N'The Ngoc Lu Bronze Drum is the most iconic artifact of the Dong Son culture (dating back 2,500 years). Its tympanum features a 14-pointed star surrounded by Lac birds and scenes of ancient communal life.',
- '/static/images/hv_001.jpg', '/static/audio/ngoc-lu-thuyet-minh-vi.mp3', '/static/audio/ngoc-lu-thuyet-minh-en.mp3', 225, 'VI,EN,KO,JA', 340, 215, 'PUBLISHED'),
+ '/static/images/hv_001.jpg', '/static/audio/ngoc-lu-thuyet-minh-vi.mp3', '/static/audio/ngoc-lu-thuyet-minh-en.mp3', 225, 'VI,EN,KO', 340, 215, 'PUBLISHED'),
 
 (1, 'HV-002', N'Phòng Gốm Cổ - Tầng 1',
  N'Bình gốm Chu Đậu', N'Chu Dau Ceramic Vase',
@@ -508,7 +565,7 @@ VALUES
  N'Sandstone relief of an Apsara celestial dancer from the Champa Kingdom.',
  N'Tượng vũ nữ Apsara thuộc phong cách nghệ thuật Trà Kiệu (thế kỷ X), thể hiện đường nét uyển chuyển và nghệ thuật chạm khắc đá sa thạch đỉnh cao của vương quốc Chăm Pa.',
  N'Carved in the 10th-century Tra Kieu style, this sandstone Apsara dancer embodies the grace and sculptural mastery of the Champa civilization.',
- '/static/images/hv_003.jpg', '/static/audio/apsara-vi.mp3', '/static/audio/apsara-en.mp3', 195, 'VI,EN,JA', 280, 420, 'PUBLISHED'),
+ '/static/images/hv_003.jpg', '/static/audio/apsara-vi.mp3', '/static/audio/apsara-en.mp3', 195, 'VI,EN', 280, 420, 'PUBLISHED'),
 
 (1, 'HV-004', N'Khu trưng bày Đông Sơn - Tầng 1',
  N'Thạp đồng Đào Thịnh', N'Dao Thinh Bronze Jar',
@@ -524,7 +581,11 @@ VALUES
  N'Imperial golden seal symbolizing the supreme authority of the Nguyen Emperors.',
  N'Chiếc ấn vàng đúc dưới triều vua Minh Mạng năm 1823 với núm ấn hình rồng uốn lượn, được sử dụng trong các đại lễ và văn kiện trọng đại của triều đình Huế.',
  N'Cast in 1823 during Emperor Minh Mang reign, this dragon-knobbed golden seal was used for the most solemn imperial decrees of the Hue Court.',
- '/static/images/hv_005.jpg', '/static/audio/an-vang-vi.mp3', '/static/audio/an-vang-en.mp3', 240, 'VI,EN,KO', 610, 450, 'PUBLISHED');
+ '/static/images/hv_005.jpg', '/static/audio/an-vang-vi.mp3', '/static/audio/an-vang-en.mp3', 240, 'VI,EN', 610, 450, 'PUBLISHED');
+
+-- Bản dịch tiếng Hàn mẫu cho HV-001 (khớp translated_langs 'VI,EN,KO')
+INSERT INTO dbo.ArtifactTranslations (artifact_id, lang_code, name, summary, description, audio_url)
+VALUES (1, 'ko', N'응옥루 청동북', N'응옥루 청동북 — 2,500여 년 전 동선 문화의 정수.', N'응옥루 청동북은 약 2,500년 전 동선 문화를 대표하는 가장 오래되고 아름다운 청동북 중 하나입니다. 북면 중앙에는 14개의 빛살을 가진 별이 있고, 락새와 고대 베트남인의 생활 모습이 새겨져 있습니다.', NULL);
 
 INSERT INTO dbo.Beacons (beacon_code, artifact_id, zone_name, uuid, major, minor, trigger_distance, battery_level, map_x, map_y, status)
 VALUES

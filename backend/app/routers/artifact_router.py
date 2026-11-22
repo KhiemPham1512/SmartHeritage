@@ -49,14 +49,14 @@ def get_artifacts(
             a.artifact_id,
             a.artifact_code,
             a.zone_name,
-            CASE WHEN :lang = 'en' THEN a.name_en ELSE a.name_vi END AS name,
-            CASE WHEN :lang = 'en' THEN a.summary_en ELSE a.summary_vi END AS summary,
-            CASE WHEN :lang = 'en' THEN a.description_en ELSE a.description_vi END AS description,
+            l.name AS name,
+            l.summary AS summary,
+            l.description AS description,
             a.name_vi, a.name_en,
             a.summary_vi, a.summary_en,
             a.description_vi, a.description_en,
             a.image_url,
-            CASE WHEN :lang = 'en' THEN a.audio_en_url ELSE a.audio_vi_url END AS audio_url,
+            l.audio_url AS audio_url,
             a.audio_vi_url, a.audio_en_url,
             a.audio_duration_sec,
             a.translated_langs,
@@ -69,6 +69,7 @@ def get_artifacts(
             b.status AS beacon_status
         FROM dbo.Artifacts a
         LEFT JOIN dbo.Beacons b ON a.artifact_id = b.artifact_id
+        LEFT JOIN dbo.fn_LocalizedArtifacts(:lang) l ON l.artifact_id = a.artifact_id
         WHERE 1=1
     """
     params = {"lang": lang}
@@ -98,13 +99,14 @@ def get_artifact_detail(
         text("""
             SELECT 
                 a.*,
-                CASE WHEN :lang = 'en' THEN a.name_en ELSE a.name_vi END AS name,
-                CASE WHEN :lang = 'en' THEN a.summary_en ELSE a.summary_vi END AS summary,
-                CASE WHEN :lang = 'en' THEN a.description_en ELSE a.description_vi END AS description,
-                CASE WHEN :lang = 'en' THEN a.audio_en_url ELSE a.audio_vi_url END AS audio_url,
+                l.name AS name,
+                l.summary AS summary,
+                l.description AS description,
+                l.audio_url AS audio_url,
                 b.beacon_id, b.beacon_code, b.major, b.minor, b.trigger_distance
             FROM dbo.Artifacts a
             LEFT JOIN dbo.Beacons b ON a.artifact_id = b.artifact_id
+            LEFT JOIN dbo.fn_LocalizedArtifacts(:lang) l ON l.artifact_id = a.artifact_id
             WHERE a.artifact_id = :id
         """),
         {"id": artifact_id, "lang": lang}

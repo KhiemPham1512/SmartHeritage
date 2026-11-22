@@ -125,6 +125,41 @@ class BeaconCoordinateUpdate(BaseModel):
     map_y: float = Field(..., examples=[215.0])
 
 
+class SiteCreate(BaseModel):
+    name_vi: str = Field(..., min_length=1, examples=["Bảo tàng Lịch sử Quốc gia"])
+    name_en: str = Field(..., min_length=1, examples=["Vietnam National Museum of History"])
+    description_vi: Optional[str] = None
+    description_en: Optional[str] = None
+    address: Optional[str] = None
+    floor_name: Optional[str] = Field("Tầng 1 - Khu trưng bày chính")
+    map_image_url: Optional[str] = None
+
+
+class SiteUpdate(BaseModel):
+    name_vi: Optional[str] = None
+    name_en: Optional[str] = None
+    description_vi: Optional[str] = None
+    description_en: Optional[str] = None
+    address: Optional[str] = None
+    floor_name: Optional[str] = None
+    map_image_url: Optional[str] = None
+    is_active: Optional[bool] = Field(None, description="Ẩn khu di tích thay vì xóa (xóa sẽ xóa dây chuyền hiện vật)")
+
+
+# =========================================================================
+# ĐA NGÔN NGỮ (W4 tab ngôn ngữ, W8 ngôn ngữ hệ thống)
+# =========================================================================
+class LanguageUpdate(BaseModel):
+    is_enabled: bool
+
+
+class TranslationUpsert(BaseModel):
+    name: str = Field(..., min_length=1, examples=["응옥루 청동북"])
+    summary: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=1)
+    audio_url: Optional[str] = None
+
+
 class SiteMapUpdate(BaseModel):
     floor_name: Optional[str] = Field(None, examples=["Tầng 1 - Khu trưng bày chính"])
     map_image_url: str = Field(..., examples=["/static/images/floorplan_tang1.png"])

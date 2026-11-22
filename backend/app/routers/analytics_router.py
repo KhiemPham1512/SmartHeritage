@@ -83,14 +83,15 @@ def get_my_favorites_and_history(
                 v.artifact_id,
                 a.artifact_code,
                 a.zone_name,
-                CASE WHEN :lang = 'en' THEN a.name_en ELSE a.name_vi END AS name,
-                CASE WHEN :lang = 'en' THEN a.summary_en ELSE a.summary_vi END AS summary,
+                l.name AS name,
+                l.summary AS summary,
                 a.image_url,
                 v.duration_seconds,
                 v.is_favorite,
                 v.visited_at
             FROM dbo.VisitLogs v
             INNER JOIN dbo.Artifacts a ON v.artifact_id = a.artifact_id
+            LEFT JOIN dbo.fn_LocalizedArtifacts(:lang) l ON l.artifact_id = a.artifact_id
             WHERE (:uid IS NOT NULL AND v.user_id = :uid)
                OR (:uid IS NULL AND v.device_id = :did)
             ORDER BY v.visited_at DESC
