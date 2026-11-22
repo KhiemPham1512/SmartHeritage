@@ -21,10 +21,10 @@ export default function W3_Artifacts({ onAdd, onEdit }: Props) {
   const load = async () => {
     setLoading(true); setError(""); setNotice("");
     try {
-      const list = await apiFetch<Artifact[]>("/artifacts?lang=vi");
+      const list = await apiFetch<Artifact[]>("/api/artifacts?lang=vi");
       setItems(Array.isArray(list) ? list : []);
       try {
-        const summary = await apiFetch<ArtifactStats>("/artifacts/stats");
+        const summary = await apiFetch<ArtifactStats>("/api/artifacts/stats");
         setStats(summary);
       } catch {
         // Keep the real list visible if the optional KPI endpoint is temporarily unavailable.
@@ -38,7 +38,7 @@ export default function W3_Artifacts({ onAdd, onEdit }: Props) {
     } catch (e) { setError(e instanceof Error ? e.message : "Không tải được dữ liệu hiện vật."); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { queueMicrotask(() => void load()); }, []); // Tải sau microtask: tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect)
 
   const zones = useMemo(() => [...new Set(items.map(x => x.zone_name).filter(Boolean))].sort(), [items]);
   const filtered = useMemo(() => items.filter(item => {
@@ -52,7 +52,7 @@ export default function W3_Artifacts({ onAdd, onEdit }: Props) {
     if (!window.confirm(`Bạn chắc chắn muốn xóa hiện vật ${item.artifact_code} – ${item.name_vi}? Thao tác này không thể hoàn tác.`)) return;
     setDeleting(item.artifact_id); setError(""); setNotice("");
     try {
-      await apiFetch(`/artifacts/${item.artifact_id}`, { method: "DELETE" });
+      await apiFetch(`/api/artifacts/${item.artifact_id}`, { method: "DELETE" });
       await load();
       setNotice(`Đã xóa hiện vật ${item.artifact_code}.`);
     } catch (e) { setError(e instanceof Error ? e.message : "Không thể xóa hiện vật."); }

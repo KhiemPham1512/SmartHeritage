@@ -110,7 +110,7 @@ export default function W5_Beacons() {
     }
   }, [statusFilter]);
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => { queueMicrotask(() => void loadData()); }, [loadData]); // Tải sau microtask: tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect)
 
   const filteredItems = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase("vi");
