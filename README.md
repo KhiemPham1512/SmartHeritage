@@ -311,6 +311,7 @@ SmartHeritage/
 ├── database/
 │   └── init_schema.sql                     # [M0] Script khởi tạo SmartHeritageDB (6 bảng, 3 Index, 2 View, 7 SP)
 ├── mobile/                                 # [TV2 phụ trách] Ứng dụng Android (Kotlin + Jetpack Compose)
+├── beacon-sim/                             # App Android trạm iBeacon giả lập (thay app Beacon Simulator) — xem beacon-sim/README.md
 ├── .gitignore                              # Chặn .venv, __pycache__, .env, node_modules, dist, build
 └── README.md                               # Tài liệu tổng quan và hướng dẫn cài đặt dự án
 ```
