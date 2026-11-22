@@ -36,6 +36,7 @@ import com.example.smartheritage_mobile.config.resolveArtifactDrawableRes
 import com.example.smartheritage_mobile.config.resolveArtifactImageModel
 import com.example.smartheritage_mobile.config.toFullMediaUrl
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
 import com.example.smartheritage_mobile.data.repository.ArtifactRepository
 import com.example.smartheritage_mobile.model.FavoriteToggleRequestDto
 import com.example.smartheritage_mobile.model.FeedbackCreateRequestDto
@@ -149,8 +150,8 @@ fun ArtifactDetailScreen(
                 try {
                     repository.recordVisitLog(
                         VisitLogCreateRequest(
-                            user_id = null,
-                            device_id = "android-guest-01",
+                            user_id = Session.userId,
+                            device_id = Session.deviceId,
                             artifact_id = artifactId,
                             beacon_id = detail.beacon_id ?: artifactId,
                             lang_used = lang,
@@ -238,8 +239,8 @@ fun ArtifactDetailScreen(
                                 try {
                                     val res = repository.toggleFavorite(
                                         FavoriteToggleRequestDto(
-                                            user_id = null,
-                                            device_id = "android-guest-01",
+                                            user_id = Session.userId,
+                                            device_id = Session.deviceId,
                                             artifact_id = artifactId
                                         )
                                     )
@@ -616,8 +617,8 @@ fun ArtifactDetailScreen(
                         try {
                             repository.submitFeedback(
                                 FeedbackCreateRequestDto(
-                                    user_id = null,
-                                    visitor_name = "Nguyễn Văn A",
+                                    user_id = Session.userId,
+                                    visitor_name = Session.fullName ?: "Khách tham quan",
                                     artifact_id = artifactId,
                                     rating = rating,
                                     comment = finalComment

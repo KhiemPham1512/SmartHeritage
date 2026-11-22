@@ -400,6 +400,20 @@ npm run dev
 * Sau khi đăng nhập, hệ thống chuyển vào màn hình **W2 (Thống kê & báo cáo)** và thanh Sidebar điều hướng sang các màn hình **`W3` $\rightarrow$ `W8`**.
 * **Đối với TV3, TV4, TV5:** Xem chi tiết quy tắc code và mẫu câu lệnh gọi API tại file **`admin-web/README.md`**.
 
+### Bước 4: Cài app khách (`mobile/`) và trạm phát giả lập (`beacon-sim/`) lên điện thoại
+
+```powershell
+$env:JAVA_HOME = "D:\Android\Android Studio\jbr"        # JDK đi kèm Android Studio (đổi theo máy)
+cd mobile                                                  # lần đầu: tạo local.properties có dòng  sdk.dir=D\:\\Android\\SDK
+.\gradlew.bat assembleDebug
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+* **Kết nối backend:** điện thoại và máy tính cùng Wi-Fi. Trong app (màn Đăng nhập hoặc tab Cá nhân) bấm dòng **Máy chủ**, nhập `<IP máy tính>:8000` (xem bằng `ipconfig`), bấm **Kiểm tra kết nối** rồi **Lưu**. Backend phải chạy với `--host 0.0.0.0` và Windows Firewall cho phép cổng 8000. Để trống = tự động (`adb reverse tcp:8000 tcp:8000` qua cáp USB, hoặc máy ảo Android Studio).
+* **Tài khoản:** đăng ký/đăng nhập thật (`POST /api/auth/*`); chế độ Khách dùng mã thiết bị riêng cho từng máy.
+* **Ngưỡng kích hoạt:** mỗi iBeacon dùng bán kính do Admin đặt ở màn Thiết bị iBeacon (W5), mặc định 2,0 m.
+* **Trạm phát iBeacon giả lập** (điện thoại thứ 2): xem `beacon-sim/README.md`.
+
 ---
 
 ## 10. Lộ trình triển khai (30 ngày)

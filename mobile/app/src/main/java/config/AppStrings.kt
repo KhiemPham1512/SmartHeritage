@@ -111,6 +111,32 @@ data class AppStrings(
     val simulatorModeTitle: String = if (isEn) "iBeacon Transmitter (Multi-Phone)" else "Phát sóng iBeacon (Test nhiều máy)",
     val simulatorModeSub: String = if (isEn) "Turn this phone into a real iBeacon station" else "Biến điện thoại này thành cục phát iBeacon thật",
     val logoutBtn: String = if (isEn) "Sign Out" else "Đăng xuất",
+
+    // Máy chủ & tài khoản (GĐ4)
+    val serverLabel: String = if (isEn) "Server" else "Máy chủ",
+    val serverAuto: String = if (isEn) "automatic" else "tự động",
+    val serverDialogTitle: String = if (isEn) "Server address" else "Địa chỉ máy chủ",
+    val serverDialogHint: String = if (isEn) {
+        "IP of the computer running the backend, e.g. 192.168.1.5:8000. Leave empty for automatic (USB adb reverse or emulator)."
+    } else {
+        "IP máy tính chạy backend, ví dụ 192.168.1.5:8000. Để trống = tự động (cắm USB adb reverse hoặc máy ảo)."
+    },
+    val serverTestBtn: String = if (isEn) "Test connection" else "Kiểm tra kết nối",
+    val serverSaveBtn: String = if (isEn) "Save" else "Lưu",
+    val serverOk: String = if (isEn) "Connected to the server." else "Kết nối máy chủ thành công.",
+    val serverFail: String = if (isEn) {
+        "Cannot connect. Check the address, Wi-Fi and firewall (port 8000)."
+    } else {
+        "Không kết nối được. Kiểm tra địa chỉ, Wi-Fi và tường lửa (cổng 8000)."
+    },
+    val serverInvalid: String = if (isEn) "Invalid address." else "Địa chỉ không hợp lệ.",
+    val networkError: String = if (isEn) {
+        "Cannot reach the server. Check the server address below."
+    } else {
+        "Không kết nối được máy chủ. Kiểm tra địa chỉ máy chủ bên dưới."
+    },
+    val guestName: String = if (isEn) "Guest" else "Khách tham quan",
+    val guestHint: String = if (isEn) "Not signed in" else "Chưa đăng nhập",
 )
 
 fun getAppStrings(lang: String): AppStrings {

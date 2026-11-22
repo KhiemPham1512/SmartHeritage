@@ -20,7 +20,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartheritage_mobile.config.getAppStrings
+import com.example.smartheritage_mobile.config.ServerAddress
 import com.example.smartheritage_mobile.data.local.LocalArtifactCache
+import com.example.smartheritage_mobile.data.local.Session
+import com.example.smartheritage_mobile.data.repository.ArtifactRepository
+import com.example.smartheritage_mobile.model.ProfileUpdateDto
+import kotlinx.coroutines.launch
 
 private val ProfileBackground = Color(0xFFFAF8F6)
 private val ProfileOrange = Color(0xFFB95008)
@@ -42,6 +47,17 @@ fun ProfileScreen(
     var beaconEnabled by remember { mutableStateOf(true) }
     var currentLang by remember { mutableStateOf(cache.getPreferredLanguage()) }
     val strings = remember(currentLang) { getAppStrings(currentLang) }
+    val repository = remember { ArtifactRepository() }
+    val scope = rememberCoroutineScope()
+    var showServerDialog by remember { mutableStateOf(false) }
+    var serverShown by remember { mutableStateOf(Session.serverAddress) }
+
+    if (showServerDialog) {
+        ServerSettingsDialog(strings = strings, onDismiss = {
+            showServerDialog = false
+            serverShown = Session.serverAddress
+        })
+    }
 
     Column(
         modifier = Modifier
@@ -115,7 +131,7 @@ fun ProfileScreen(
 
                 Column {
                     Text(
-                        "Nguyễn Văn A",
+                        Session.fullName ?: strings.guestName,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = ProfileText
@@ -124,7 +140,7 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        "nguyenvana@email.com",
+                        Session.email ?: strings.guestHint,
                         fontSize = 11.sp,
                         color = ProfileGray
                     )
@@ -153,6 +169,15 @@ fun ProfileScreen(
                         val nextLang = if (currentLang == "vi") "en" else "vi"
                         currentLang = nextLang
                         cache.setPreferredLanguage(nextLang)
+                        if (Session.isLoggedIn) {
+                            scope.launch {
+                                try {
+                                    repository.updateProfile(ProfileUpdateDto(preferred_lang = nextLang))
+                                } catch (e: Exception) {
+                                    // Không có mạng: lựa chọn vẫn được giữ trên máy
+                                }
+                            }
+                        }
                     }
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -227,6 +252,15 @@ fun ProfileScreen(
                     checked = beaconEnabled,
                     onCheckedChange = {
                         beaconEnabled = it
+                        if (Session.isLoggedIn) {
+                            scope.launch {
+                                try {
+                                    repository.updateProfile(ProfileUpdateDto(auto_beacon_notify = it))
+                                } catch (e: Exception) {
+                                    // Không có mạng: công tắc vẫn có tác dụng trên máy
+                                }
+                            }
+                        }
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
@@ -317,11 +351,38 @@ fun ProfileScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .background(Color.White, RoundedCornerShape(11.dp))
+                    .border(1.dp, ProfileBorder, RoundedCornerShape(11.dp))
+                    .clickable { showServerDialog = true }
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(strings.serverLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ProfileText)
+                    Text(ServerAddress.normalize(serverShown) ?: strings.serverAuto, fontSize = 10.sp, color = ProfileGray)
+                }
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = ProfileGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
 
             // Logout
             OutlinedButton(
-                onClick = onLogout,
+                onClick = {
+                    Session.logout()
+                    onLogout()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(46.dp),

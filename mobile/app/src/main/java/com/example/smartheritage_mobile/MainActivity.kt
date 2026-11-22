@@ -22,11 +22,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.smartheritage_mobile.data.local.Session
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Session.init(applicationContext)
 
         setContent {
             MaterialTheme {
@@ -34,7 +36,7 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = "language"
+                    startDestination = if (Session.isLoggedIn) "home" else "language"
                 ) {
                     composable("language") {
                         WelcomeScreen(
@@ -48,7 +50,7 @@ class MainActivity : ComponentActivity() {
                     composable("auth") {
                         LoginScreen(
                             onLoginSuccess = {
-                                navController.navigate("profile") {
+                                navController.navigate("home") {
                                     popUpTo("auth") { inclusive = true }
                                 }
                             },
@@ -68,7 +70,7 @@ class MainActivity : ComponentActivity() {
                     composable("register"){
                         CreateAccountScreen(
                             onRegisterSuccess = {
-                                navController.navigate("profile") {
+                                navController.navigate("home") {
                                     popUpTo("auth") {
                                         inclusive = true
                                     }
@@ -160,9 +162,7 @@ class MainActivity : ComponentActivity() {
                         ProfileScreen(
                             onLogout = {
                                 navController.navigate("auth") {
-                                    popUpTo("profile") {
-                                        inclusive = true
-                                    }
+                                    popUpTo(navController.graph.id) { inclusive = true }
                                 }
                             },
                             onHome = {
