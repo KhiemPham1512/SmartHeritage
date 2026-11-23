@@ -42,7 +42,10 @@ class MainActivity : ComponentActivity() {
                     try {
                         ArtifactRepository().refreshLanguages()
                         val cache = LocalArtifactCache.getInstance(applicationContext)
-                        if (cache.getPreferredLanguage() !in Session.enabledLanguages) cache.setPreferredLanguage("vi")
+                        if (cache.getPreferredLanguage() !in Session.enabledLanguages) {
+                            cache.setPreferredLanguage("vi")
+                            recreate() // các màn đã đọc ngôn ngữ cũ lúc khởi động → dựng lại để áp dụng ngay (tiếng Việt luôn bật nên không lặp)
+                        }
                     } catch (e: Exception) {
                         // Không có mạng: dùng danh sách đã lưu
                     }
