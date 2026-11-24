@@ -6,10 +6,8 @@ import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -218,11 +216,6 @@ fun HomeScreen(
         }
     }
 
-    fun resetCooldown() {
-        cooldownMap.clear()
-        scanErrorMessage = "Đã xóa bộ nhớ Cooldown (bạn có thể test lại ngay)"
-    }
-
     // --- 4. BỘ QUÉT TÍN HIỆU BLE IBEACON THẬT (ALTBEACON) ---
     DisposableEffect(permissionsGranted, apiLanguage) {
         if (!permissionsGranted) return@DisposableEffect onDispose {}
@@ -351,16 +344,6 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
-                // CHẾ ĐỘ TEST IBEACON TRÊN 1 ĐIỆN THOẠI (1-DEVICE SIMULATOR PANEL)
-                SinglePhoneBeaconTestBar(
-                    onTriggerSignal = { minor, distance ->
-                        processDetectedSignal(BeaconConfig.GROUP_UUID, BeaconConfig.DEFAULT_MAJOR, minor, distance)
-                    },
-                    onResetCooldown = {
-                        resetCooldown()
-                    }
-                )
-
                 // CHỈ BÁO TRẠNG THÁI SCAN LỖI / LOADING BEACON
                 if (scanErrorMessage != null) {
                     Surface(
@@ -547,126 +530,6 @@ fun HomeScreen(
                         onDetail(detectedArtifact!!.artifact_id)
                     }
                 )
-            }
-        }
-    }
-}
-
-// --- BAR CÔNG CỤ TEST IBEACON TRÊN 1 ĐIỆN THOẠI ---
-@Composable
-private fun SinglePhoneBeaconTestBar(
-    onTriggerSignal: (minor: Int, distance: Double) -> Unit,
-    onResetCooldown: () -> Unit
-) {
-    var isExpanded by remember { mutableStateOf(false) }
-    var selectedDistance by remember { mutableStateOf(1.2) } // Mặc định 1.2m (Đứng gần <= 2.0m)
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F4F8)),
-        border = BorderStroke(1.dp, Color(0xFFD0D7DE))
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "🧪 Test iBeacon (1 Máy)",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = HomeText,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = if (isExpanded) "Thu gọn ▲" else "Mở rộng ▼",
-                    fontSize = 9.sp,
-                    color = HomeOrange,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            AnimatedVisibility(visible = isExpanded) {
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    // Chọn khoảng cách giả lập
-                    Text(
-                        text = "KHOẢNG CÁCH GIẢ LẬP:",
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = HomeGray
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = selectedDistance == 1.2,
-                            onClick = { selectedDistance = 1.2 },
-                            label = { Text("Đứng gần (1.2m - Bật Popup)", fontSize = 9.sp) }
-                        )
-                        FilterChip(
-                            selected = selectedDistance == 3.5,
-                            onClick = { selectedDistance = 3.5 },
-                            label = { Text("Đứng xa (3.5m - Bỏ qua)", fontSize = 9.sp) }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = "BẤM VÀO MINOR ĐỂ GIẢ LẬP KÍCH HOẠT:",
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = HomeGray
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        BeaconConfig.TEST_MINORS.forEach { minor ->
-                            Button(
-                                onClick = { onTriggerSignal(minor, selectedDistance) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(34.dp),
-                                contentPadding = PaddingValues(2.dp),
-                                shape = RoundedCornerShape(6.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = HomeOrange)
-                            ) {
-                                Text(
-                                    text = "$minor",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    OutlinedButton(
-                        onClick = onResetCooldown,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp),
-                        shape = RoundedCornerShape(6.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(
-                            text = "🔄 Xóa bộ nhớ Cooldown (Test lại)",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
             }
         }
     }
