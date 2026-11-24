@@ -16,6 +16,12 @@ GO
 USE SmartHeritageDB;
 GO
 
+-- Đa phiên bản (Chương 3 - Multiversion): cho phép giao tác chạy mức cô lập SNAPSHOT.
+-- Báo cáo W2 đọc bản đã commit tại thời điểm bắt đầu, không phải chờ giao tác ghi đang giữ khóa X.
+IF (SELECT snapshot_isolation_state FROM sys.databases WHERE name = DB_NAME()) = 0
+    ALTER DATABASE SmartHeritageDB SET ALLOW_SNAPSHOT_ISOLATION ON;
+GO
+
 -- =========================================================================
 -- PHẦN 1: DỌN DẸP ĐỐI TƯỢNG CŨ ĐỂ CHẠY LẠI AN TOÀN (IDEMPOTENT SCRIPT)
 -- =========================================================================
@@ -26,6 +32,7 @@ IF OBJECT_ID('dbo.sp_GetArtifactConsistent_RepeatableRead', 'P') IS NOT NULL DRO
 IF OBJECT_ID('dbo.sp_DashboardSnapshot_Serializable', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_DashboardSnapshot_Serializable;
 IF OBJECT_ID('dbo.sp_GenerateNextArtifactCode', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_GenerateNextArtifactCode;
 IF OBJECT_ID('dbo.sp_AuditBeaconHealth_Cursor', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_AuditBeaconHealth_Cursor;
+IF OBJECT_ID('dbo.sp_ToggleFavorite_UpdLock', 'P') IS NOT NULL DROP PROCEDURE dbo.sp_ToggleFavorite_UpdLock;
 
 IF OBJECT_ID('dbo.fn_LocalizedArtifacts', 'IF') IS NOT NULL DROP FUNCTION dbo.fn_LocalizedArtifacts;
 IF OBJECT_ID('dbo.vw_PublicArtifacts_VI_EN', 'V') IS NOT NULL DROP VIEW dbo.vw_PublicArtifacts_VI_EN;
@@ -146,7 +153,7 @@ GO
 CREATE TABLE dbo.Beacons (
     beacon_id INT IDENTITY(1,1) PRIMARY KEY,
     beacon_code VARCHAR(50) NOT NULL UNIQUE,
-    artifact_id INT NULL UNIQUE,
+    artifact_id INT NULL,  -- 1 hiện vật tối đa 1 beacon: xem UX_Beacons_Artifact bên dưới
     zone_name NVARCHAR(150) NULL DEFAULT N'Tầng 1 - Phòng Đông Sơn',
     uuid VARCHAR(36) NOT NULL DEFAULT 'FDA50693-A4E2-4FB1-AFCF-C6EB07647825',
     major INT NOT NULL DEFAULT 1
@@ -167,6 +174,11 @@ CREATE TABLE dbo.Beacons (
     CONSTRAINT UQ_Beacon_Signal UNIQUE (uuid, major, minor),
     CONSTRAINT FK_Beacons_Artifacts FOREIGN KEY (artifact_id) REFERENCES dbo.Artifacts(artifact_id) ON DELETE SET NULL
 );
+GO
+
+-- UNIQUE thường coi mọi NULL là trùng nhau → chỉ được 1 beacon "chưa gắn hiện vật".
+-- Chỉ mục UNIQUE CÓ LỌC chỉ xét dòng đã gắn: vẫn giữ quan hệ 1–1 nhưng nhập kho được nhiều beacon.
+CREATE UNIQUE NONCLUSTERED INDEX UX_Beacons_Artifact ON dbo.Beacons(artifact_id) WHERE artifact_id IS NOT NULL;
 GO
 
 -- 5. BẢNG VisitLogs (Khớp với W2 và Mobile 9 - Yêu thích & Lịch sử)
@@ -209,6 +221,11 @@ GO
 CREATE NONCLUSTERED INDEX IX_Beacons_Major_Minor ON dbo.Beacons(major, minor) INCLUDE (artifact_id, status, trigger_distance);
 CREATE NONCLUSTERED INDEX IX_VisitLogs_Artifact_Date ON dbo.VisitLogs(artifact_id, visited_at) INCLUDE (duration_seconds, lang_used, is_favorite);
 CREATE NONCLUSTERED INDEX IX_Feedbacks_Artifact_Visible ON dbo.Feedbacks(artifact_id, is_visible) INCLUDE (rating);
+-- Dashboard W2 lọc VisitLogs theo khoảng ngày (visited_at >= ... AND visited_at < ...) → Index Seek thay vì quét bảng
+CREATE NONCLUSTERED INDEX IX_VisitLogs_VisitedAt ON dbo.VisitLogs(visited_at) INCLUDE (duration_seconds, lang_used);
+-- Mobile Màn 9 (Yêu thích & Lịch sử) và nút tim: lọc theo tài khoản HOẶC theo máy khách vãng lai, mới nhất trước
+CREATE NONCLUSTERED INDEX IX_VisitLogs_User_Date ON dbo.VisitLogs(user_id, visited_at) INCLUDE (artifact_id, is_favorite, duration_seconds);
+CREATE NONCLUSTERED INDEX IX_VisitLogs_Device_Date ON dbo.VisitLogs(device_id, visited_at) INCLUDE (artifact_id, is_favorite, duration_seconds);
 GO
 
 -- =========================================================================
@@ -511,6 +528,51 @@ BEGIN
 
     CLOSE cursor_beacons;
     DEALLOCATE cursor_beacons;
+END
+GO
+
+-- 5.8. Nút tim (Mobile Màn 6, 9): chống MẤT CẬP NHẬT và BÓNG MA cùng lúc
+-- Lỗi cũ: "đọc xem đã có dòng chưa" rồi mới INSERT/UPDATE ở mức READ COMMITTED → 2 lần bấm đồng thời
+-- cùng thấy "chưa có" và cùng INSERT (bóng ma), hoặc cùng đọc is_favorite = 0 rồi cùng ghi 1 (mất cập nhật).
+-- UPDLOCK: khóa cập nhật U không tương thích với U → giao tác thứ 2 phải chờ ngay từ lúc đọc (không deadlock).
+-- HOLDLOCK (= SERIALIZABLE cho riêng câu này): khóa cả KHOẢNG khóa chỉ mục → chặn INSERT dòng "ma" cho tới khi COMMIT.
+CREATE PROCEDURE dbo.sp_ToggleFavorite_UpdLock
+    @artifact_id INT,
+    @user_id INT = NULL,
+    @device_id VARCHAR(100) = NULL,
+    @is_favorite BIT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON; -- lỗi giữa chừng → hủy toàn bộ giao tác (Atomicity)
+    DECLARE @log_id INT, @current BIT;
+
+    BEGIN TRAN;
+    -- Tách 2 nhánh IF thay vì "(@user_id IS NULL OR ...)" để điều kiện SARGable → Index Seek trên đúng chỉ mục
+    IF @user_id IS NOT NULL
+        SELECT TOP 1 @log_id = log_id, @current = is_favorite
+        FROM dbo.VisitLogs WITH (UPDLOCK, HOLDLOCK)
+        WHERE user_id = @user_id AND artifact_id = @artifact_id
+        ORDER BY visited_at DESC;
+    ELSE
+        SELECT TOP 1 @log_id = log_id, @current = is_favorite
+        FROM dbo.VisitLogs WITH (UPDLOCK, HOLDLOCK)
+        WHERE device_id = @device_id AND artifact_id = @artifact_id
+        ORDER BY visited_at DESC;
+
+    IF @log_id IS NULL
+    BEGIN
+        INSERT INTO dbo.VisitLogs (user_id, device_id, artifact_id, lang_used, duration_seconds, is_favorite)
+        VALUES (@user_id, @device_id, @artifact_id, 'vi', 30, 1);
+        SET @is_favorite = 1;
+    END
+    ELSE
+    BEGIN
+        SET @is_favorite = CASE WHEN @current = 1 THEN 0 ELSE 1 END;
+        UPDATE dbo.VisitLogs SET is_favorite = @is_favorite WHERE log_id = @log_id;
+    END
+
+    COMMIT TRAN;
 END
 GO
 

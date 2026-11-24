@@ -15,6 +15,14 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_VisitLogs_Artifact_Dat
     CREATE NONCLUSTERED INDEX IX_VisitLogs_Artifact_Date ON dbo.VisitLogs(artifact_id, visited_at) INCLUDE (duration_seconds, lang_used, is_favorite);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Feedbacks_Artifact_Visible')
     CREATE NONCLUSTERED INDEX IX_Feedbacks_Artifact_Visible ON dbo.Feedbacks(artifact_id, is_visible) INCLUDE (rating);
+-- Dashboard W2 lọc VisitLogs theo khoảng ngày (visited_at >= ... AND visited_at < ...) → Index Seek thay vì quét bảng
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_VisitLogs_VisitedAt')
+    CREATE NONCLUSTERED INDEX IX_VisitLogs_VisitedAt ON dbo.VisitLogs(visited_at) INCLUDE (duration_seconds, lang_used);
+-- Mobile Màn 9 (Yêu thích & Lịch sử) và nút tim: lọc theo tài khoản HOẶC theo máy khách vãng lai, mới nhất trước
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_VisitLogs_User_Date')
+    CREATE NONCLUSTERED INDEX IX_VisitLogs_User_Date ON dbo.VisitLogs(user_id, visited_at) INCLUDE (artifact_id, is_favorite, duration_seconds);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_VisitLogs_Device_Date')
+    CREATE NONCLUSTERED INDEX IX_VisitLogs_Device_Date ON dbo.VisitLogs(device_id, visited_at) INCLUDE (artifact_id, is_favorite, duration_seconds);
 GO
 
 -- =========================================================================
@@ -317,5 +325,50 @@ BEGIN
 
     CLOSE cursor_beacons;
     DEALLOCATE cursor_beacons;
+END
+GO
+
+-- 5.8. Nút tim (Mobile Màn 6, 9): chống MẤT CẬP NHẬT và BÓNG MA cùng lúc
+-- Lỗi cũ: "đọc xem đã có dòng chưa" rồi mới INSERT/UPDATE ở mức READ COMMITTED → 2 lần bấm đồng thời
+-- cùng thấy "chưa có" và cùng INSERT (bóng ma), hoặc cùng đọc is_favorite = 0 rồi cùng ghi 1 (mất cập nhật).
+-- UPDLOCK: khóa cập nhật U không tương thích với U → giao tác thứ 2 phải chờ ngay từ lúc đọc (không deadlock).
+-- HOLDLOCK (= SERIALIZABLE cho riêng câu này): khóa cả KHOẢNG khóa chỉ mục → chặn INSERT dòng "ma" cho tới khi COMMIT.
+CREATE OR ALTER PROCEDURE dbo.sp_ToggleFavorite_UpdLock
+    @artifact_id INT,
+    @user_id INT = NULL,
+    @device_id VARCHAR(100) = NULL,
+    @is_favorite BIT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON; -- lỗi giữa chừng → hủy toàn bộ giao tác (Atomicity)
+    DECLARE @log_id INT, @current BIT;
+
+    BEGIN TRAN;
+    -- Tách 2 nhánh IF thay vì "(@user_id IS NULL OR ...)" để điều kiện SARGable → Index Seek trên đúng chỉ mục
+    IF @user_id IS NOT NULL
+        SELECT TOP 1 @log_id = log_id, @current = is_favorite
+        FROM dbo.VisitLogs WITH (UPDLOCK, HOLDLOCK)
+        WHERE user_id = @user_id AND artifact_id = @artifact_id
+        ORDER BY visited_at DESC;
+    ELSE
+        SELECT TOP 1 @log_id = log_id, @current = is_favorite
+        FROM dbo.VisitLogs WITH (UPDLOCK, HOLDLOCK)
+        WHERE device_id = @device_id AND artifact_id = @artifact_id
+        ORDER BY visited_at DESC;
+
+    IF @log_id IS NULL
+    BEGIN
+        INSERT INTO dbo.VisitLogs (user_id, device_id, artifact_id, lang_used, duration_seconds, is_favorite)
+        VALUES (@user_id, @device_id, @artifact_id, 'vi', 30, 1);
+        SET @is_favorite = 1;
+    END
+    ELSE
+    BEGIN
+        SET @is_favorite = CASE WHEN @current = 1 THEN 0 ELSE 1 END;
+        UPDATE dbo.VisitLogs SET is_favorite = @is_favorite WHERE log_id = @log_id;
+    END
+
+    COMMIT TRAN;
 END
 GO
