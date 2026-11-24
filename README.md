@@ -133,7 +133,7 @@ flowchart LR
 | :--- | :--- |
 | Kiến trúc 3 mức trừu tượng | Mức Vật lý (`Clustered / Non-Clustered Index`), Mức Luận lý (`8 bảng + Constraints`), Mức Khung nhìn (`vw_PublicArtifacts_VI_EN`, `vw_BeaconHealthMonitor`) |
 | Quản lý Giao tác & Khóa (ACID) | `BEGIN TRAN ... COMMIT / ROLLBACK TRAN`, kiểm tra biến hệ thống `@@ERROR`, `@@ROWCOUNT`, `@@TRANCOUNT` |
-| Chống 4 vấn đề truy xuất đồng thời | `READ COMMITTED` (chống *Dirty Read*), `REPEATABLE READ` (chống *Non-Repeatable Read*), `SERIALIZABLE` (chống *Phantom Read*), và `WITH (UPDLOCK)` (nâng cấp khóa `ULock` chống *Lost Update*) |
+| Chống 4 vấn đề truy xuất đồng thời | `READ COMMITTED` (chống *Dirty Read*), `REPEATABLE READ` (chống *Non-Repeatable Read*), `SERIALIZABLE` (chống *Phantom Read*), và `WITH (UPDLOCK)` (nâng cấp khóa `ULock` chống *Lost Update*); nút tim dùng `WITH (UPDLOCK, HOLDLOCK)` chống cả *Lost Update* lẫn *Phantom*; báo cáo W2 đọc ở mức `SNAPSHOT` (đa phiên bản, không chặn giao tác ghi) |
 | Lập trình T-SQL nâng cao | Vòng lặp `WHILE + IF NOT EXISTS` cấp mã tự động (`sp_GenerateNextArtifactCode`), Con trỏ `CURSOR + @@FETCH_STATUS` (`sp_AuditBeaconHealth_Cursor`), cấu trúc rẽ nhánh `CASE ... WHEN` |
 
 ### Admin Web (`admin-web/`)
@@ -148,7 +148,7 @@ flowchart LR
 
 ## 5. Thiết kế cơ sở dữ liệu
 
-Schema gồm **8 bảng** (6 bảng cốt lõi + `Languages`, `ArtifactTranslations`), **3 Non-Clustered Indexes**, **2 Views**, **1 hàm bảng `fn_LocalizedArtifacts`** và **7 Stored Procedures** trong SQL Server (`database/init_schema.sql`), đồng bộ 100% với thiết kế Figma Web (`W1`–`W8`) và Mobile (`1`–`10`).
+Schema gồm **8 bảng** (6 bảng cốt lõi + `Languages`, `ArtifactTranslations`), **7 Non-Clustered Indexes** (1 chỉ mục UNIQUE có lọc), **2 Views**, **1 hàm bảng `fn_LocalizedArtifacts`**, **8 Stored Procedures** và mức cô lập **SNAPSHOT** (đa phiên bản) trong SQL Server (`database/init_schema.sql`), đồng bộ 100% với thiết kế Figma Web (`W1`–`W8`) và Mobile (`1`–`10`).
 
 ```mermaid
 erDiagram
@@ -309,7 +309,7 @@ SmartHeritage/
 │   ├── requirements.txt                    # [M0] Danh sách thư viện Python chuẩn của Backend
 │   └── seed_media.py                       # Script tự động sinh bộ file ảnh & âm thanh mẫu
 ├── database/
-│   └── init_schema.sql                     # [M0] Script khởi tạo SmartHeritageDB (8 bảng, 3 Index, 2 View, 1 Hàm, 7 SP)
+│   └── init_schema.sql                     # [M0] Script khởi tạo SmartHeritageDB (8 bảng, 7 Index, 2 View, 1 Hàm, 8 SP)
 ├── mobile/                                 # [TV2 phụ trách] Ứng dụng Android (Kotlin + Jetpack Compose)
 ├── beacon-sim/                             # App Android trạm iBeacon giả lập (thay app Beacon Simulator) — xem beacon-sim/README.md
 ├── .gitignore                              # Chặn .venv, __pycache__, .env, node_modules, dist, build
@@ -327,9 +327,10 @@ Bất kỳ thành viên nào sau khi `git clone` dự án (hoặc `git pull orig
 1. Mở **SQL Server Management Studio (SSMS)** và kết nối vào Server của máy bạn.
    * *Ghi nhớ tên **Server name** ở màn hình đăng nhập SSMS (ví dụ: `.\SQLEXPRESS`, `localhost`, hoặc `TEN_MAY\SQLEXPRESS`).*
 2. Chọn **File** $\rightarrow$ **Open** $\rightarrow$ **File...**, mở file **`database/init_schema.sql`** trong thư mục dự án.
-3. Nhấn **`F5` (Execute)** để tạo CSDL `SmartHeritageDB` (bao gồm 8 bảng, 3 Indexes, 2 Views, 1 Inline Function, 7 Stored Procedures xử lý giao tác đồng thời và dữ liệu mẫu).
+3. Nhấn **`F5` (Execute)** để tạo CSDL `SmartHeritageDB` (bao gồm 8 bảng, 7 Indexes, 2 Views, 1 Inline Function, 8 Stored Procedures xử lý giao tác đồng thời, bật SNAPSHOT isolation và dữ liệu mẫu).
 4. **Máy đã tạo DB trước ngày 22/11/2026** không cần chạy lại script (sẽ mất dữ liệu). Sau khi cài backend ở Bước 2, trong thư mục `backend` chạy:
-   * `.\.venv\Scripts\python scripts\apply_migrations.py` — thêm bảng ngôn ngữ/bản dịch, cột lý do ẩn bình luận và **các Stored Procedure, View, Index** nếu DB đang thiếu (tương đương mở `database/migrations/*.sql` trong SSMS và F5 theo thứ tự).
+   * `.\.venv\Scripts\python scripts\apply_migrations.py` — thêm bảng ngôn ngữ/bản dịch, cột lý do ẩn bình luận, **các Stored Procedure, View, Index** nếu DB đang thiếu , bật **SNAPSHOT isolation** (migration 04) và cho phép nhiều iBeacon chưa gắn hiện vật (migration 05) (tương đương mở `database/migrations/*.sql` trong SSMS và F5 theo thứ tự).
+   * (Tùy chọn, bảo mật) `database/security/create_app_login.sql` — tạo login `smartheritage_app` chỉ có quyền đọc/ghi dữ liệu và gọi SP thay cho `sa`; chạy trong SSMS ở chế độ SQLCMD rồi sửa `backend/.env`.
    * `.\.venv\Scripts\python scripts\rehash_plaintext_passwords.py` — băm lại mật khẩu mẫu dạng thô (mật khẩu đăng nhập không đổi).
 
 ### Bước 2: Thiết lập Môi trường ảo Python 3.12 & Khởi chạy Backend FastAPI (Terminal 1)
@@ -440,7 +441,7 @@ Chạy một tiến trình (backend phục vụ luôn web admin), có HTTPS, Doc
 
 | Thành viên | Vai trò chính | Phạm vi Module & Tệp tin phụ trách |
 | :--- | :--- | :--- |
-| **Phạm Gia Khiêm** (Leader - TV1) | Database Architect, Backend Developer & Web Lead | Thiết kế `database/init_schema.sql` (8 bảng, 3 Index, 2 View, 1 Hàm, 7 SP), phát triển toàn bộ Backend FastAPI (`M0` $\rightarrow$ `M7`), dựng khung `admin-web/` (`api.ts`, `App.tsx`) và hoàn thiện màn hình **`W1` (`W1_Login.tsx`)**, **`W2` (`W2_Dashboard.tsx`)** |
+| **Phạm Gia Khiêm** (Leader - TV1) | Database Architect, Backend Developer & Web Lead | Thiết kế `database/init_schema.sql` (8 bảng, 7 Index, 2 View, 1 Hàm, 8 SP), phát triển toàn bộ Backend FastAPI (`M0` $\rightarrow$ `M7`), dựng khung `admin-web/` (`api.ts`, `App.tsx`) và hoàn thiện màn hình **`W1` (`W1_Login.tsx`)**, **`W2` (`W2_Dashboard.tsx`)** |
 | **Nguyễn Tuấn Khang** (TV2) | Mobile Android Developer | Phát triển độc lập ứng dụng Android trong thư mục `mobile/` (Kotlin, Jetpack Compose, quét sóng BLE iBeacon, `ExoPlayer` Audio Guide, `Room Database` cho 10 màn hình Mobile `1`–`10`) |
 | **Minh Tâm** (TV3) | Web Admin CMS Developer (`W3`, `W4`) | Lập trình cụm Quản trị Hiện vật đa ngôn ngữ & Upload file Ảnh/MP3 tại 2 tệp: `admin-web/src/pages/W3_Artifacts.tsx` và `admin-web/src/pages/W4_ArtifactForm.tsx` |
 | **Thành viên 4** (TV4) | Web Admin iBeacon & Map Developer (`W5`, `W6`) | Lập trình cụm Quản lý Thiết bị iBeacon & Bản đồ chấm tọa độ $(X, Y)$ khu di tích tại 2 tệp: `admin-web/src/pages/W5_Beacons.tsx` và `admin-web/src/pages/W6_FloorMap.tsx` |

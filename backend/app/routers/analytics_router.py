@@ -42,35 +42,16 @@ def record_visit_log(req: VisitLogCreate, db: Session = Depends(get_db), user: d
 
 @router.post("/favorites/toggle")
 def toggle_favorite_artifact(req: FavoriteToggleRequest, db: Session = Depends(get_db), user: dict | None = Depends(get_optional_user)):
-    uid = identity(user)
-    # Kiểm tra xem khách (theo user_id hoặc device_id) đã có log với hiện vật này chưa
-    existing = db.execute(
+    # Đọc-rồi-ghi phải nằm trong một giao tác có khóa (UPDLOCK, HOLDLOCK) → xem sp_ToggleFavorite_UpdLock
+    new_state = db.execute(
         text("""
-            SELECT TOP 1 log_id, is_favorite
-            FROM dbo.VisitLogs
-            WHERE artifact_id = :aid
-              AND ((:uid IS NOT NULL AND user_id = :uid) OR (:uid IS NULL AND device_id = :did))
-            ORDER BY visited_at DESC
+            DECLARE @fav BIT;
+            EXEC dbo.sp_ToggleFavorite_UpdLock @artifact_id = :aid, @user_id = :uid, @device_id = :did,
+                 @is_favorite = @fav OUTPUT;
+            SELECT @fav AS is_favorite;
         """),
-        {"aid": req.artifact_id, "uid": uid, "did": req.device_id}
-    ).mappings().first()
-
-    if existing:
-        new_state = 0 if existing["is_favorite"] else 1
-        db.execute(
-            text("UPDATE dbo.VisitLogs SET is_favorite = :fav WHERE log_id = :lid"),
-            {"fav": new_state, "lid": existing["log_id"]}
-        )
-    else:
-        new_state = 1
-        db.execute(
-            text("""
-                INSERT INTO dbo.VisitLogs (user_id, device_id, artifact_id, lang_used, duration_seconds, is_favorite)
-                VALUES (:uid, :did, :aid, 'vi', 30, 1)
-            """),
-            {"uid": uid, "did": req.device_id, "aid": req.artifact_id}
-        )
-
+        {"aid": req.artifact_id, "uid": identity(user), "did": req.device_id}
+    ).scalar()
     db.commit()
     return {"artifact_id": req.artifact_id, "is_favorite": bool(new_state)}
 
@@ -84,8 +65,12 @@ def get_my_favorites_and_history(
     user: dict | None = Depends(get_optional_user)
 ):
     # Phục vụ cả 2 Tab "Yêu thích" và "Lịch sử" trên Mobile Màn 9
+    uid = identity(user)
+    # Không viết "(:uid IS NOT NULL AND user_id = :uid) OR (...)": dạng OR theo tham số không SARGable
+    # → SQL Server quét cả bảng. Một điều kiện cố định thì Index Seek được trên IX_VisitLogs_User/Device_Date.
+    owner = "v.user_id = :uid" if uid is not None else "v.device_id = :did"
     rows = db.execute(
-        text("""
+        text(f"""
             SELECT 
                 v.log_id,
                 v.artifact_id,
@@ -100,11 +85,10 @@ def get_my_favorites_and_history(
             FROM dbo.VisitLogs v
             INNER JOIN dbo.Artifacts a ON v.artifact_id = a.artifact_id
             LEFT JOIN dbo.fn_LocalizedArtifacts(:lang) l ON l.artifact_id = a.artifact_id
-            WHERE (:uid IS NOT NULL AND v.user_id = :uid)
-               OR (:uid IS NULL AND v.device_id = :did)
+            WHERE {owner}
             ORDER BY v.visited_at DESC
         """),
-        {"uid": identity(user), "did": device_id, "lang": lang}
+        {"uid": uid, "did": device_id, "lang": lang}
     ).mappings().all()
 
     history = [dict(r) for r in rows]
@@ -252,6 +236,16 @@ def resolve_range(date_from: date | None, date_to: date | None) -> tuple[date, d
 IN_RANGE = "visited_at >= :d_from AND visited_at < DATEADD(day, 1, :d_to)"
 
 
+def use_snapshot(db: Session) -> None:
+    # Đa phiên bản (Chương 3): mọi câu SELECT của báo cáo cùng đọc một bản đã commit tại lúc bắt đầu giao tác
+    # (số liệu khớp nhau) và không phải chờ giao tác ghi đang giữ khóa X. Không dùng SERIALIZABLE vì nó
+    # khóa phạm vi → chặn khách đang ghi lịch sử tham quan trong suốt lúc chạy báo cáo.
+    allowed = db.execute(text("SELECT snapshot_isolation_state FROM sys.databases WHERE name = DB_NAME()")).scalar()
+    db.commit()  # kết thúc giao tác dò để giao tác báo cáo bắt đầu mới với mức cô lập mới
+    if allowed == 1:  # DB chưa chạy migration 04 → giữ READ COMMITTED mặc định
+        db.connection(execution_options={"isolation_level": "SNAPSHOT"})
+
+
 @router.get("/analytics/dashboard", dependencies=[Depends(require_staff)])
 def get_dashboard_analytics(
     date_from: date | None = Query(None, alias="from", description="YYYY-MM-DD, mặc định 29 ngày trước 'to'"),
@@ -260,6 +254,7 @@ def get_dashboard_analytics(
 ):
     # Phục vụ toàn bộ màn hình W2: 4 thẻ KPI + Top 10 hiện vật + Lượt khách theo ngày + Ngôn ngữ sử dụng
     start, end = resolve_range(date_from, date_to)
+    use_snapshot(db)
     span = (end - start).days + 1
     params = {"d_from": start, "d_to": end,
               "p_from": start - timedelta(days=span), "p_to": start - timedelta(days=1)}
@@ -330,6 +325,7 @@ def export_analytics_report_csv(
 ):
     # Phục vụ nút "Xuất Excel" trên màn hình W2 (Định dạng CSV UTF-8-SIG mở trực tiếp bằng Excel)
     start, end = resolve_range(date_from, date_to)
+    use_snapshot(db)
     rows = db.execute(text("""
         SELECT 
             a.artifact_code,
